@@ -25,7 +25,6 @@ JLinkSetting.ini
 *.map
 *.uvguix.*
 *.cfg
-*.gitmodules
 
 build/
 /cmake-build-debug-stm32
