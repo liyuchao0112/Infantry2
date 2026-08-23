@@ -17,24 +17,25 @@ status_t infantry2_gimbal_t::_init() {
 
 void infantry2_gimbal_t::_update_feedback() {
     //imu反馈数据
-    ins_drv_t::get_instance()->get_rads_n(&_ctx.data.current_imu_yaw_rad,
-        &_ctx.data.current_imu_pitch_rad, &_ctx.data.current_imu_roll_rad);
-    ins_drv_t::get_instance()->get_gyro_n(&_ctx.data.current_imu_yaw_radps,
-        &_ctx.data.current_imu_pitch_radps, &_ctx.data.current_imu_roll_radps);
+    ins_drv_t::get_instance()->get_rads_n(&_ctx.data.current_yaw_imu_rad,
+        &_ctx.data.current_pitch_imu_rad, &_ctx.data.current_roll_imu_rad);
+    ins_drv_t::get_instance()->get_gyro_n(&_ctx.data.current_yaw_imu_radps,
+        &_ctx.data.current_pitch_imu_radps, &_ctx.data.current_roll_imu_radps);
 
     //电机反馈数据
     _ctx.deps.motor.pitch->update_feedback();
     _ctx.deps.motor.yaw->update_feedback();
     
     //电机数据处理
-    _ctx.data.current_motor_pitch_rad =
+    _ctx.data.current_pitch_motor_rad =
         wrap2pi_f32(_ctx.deps.motor.pitch->get_current_position() - infantry2_gimbal::PITCH_MOTOR_OFFSET);
-    _ctx.data.current_motor_pitch_radps =
+    _ctx.data.current_pitch_motor_radps =
         _ctx.deps.motor.pitch->get_current_rotate();
     
-    _ctx.data.current_motor_yaw_rad =
-        loop_fp32_constrain(_ctx.deps.motor.yaw->get_current_position(), -PI, PI);
-    _ctx.data.current_motor_yaw_radps =
+    _ctx.data.current_yaw_motor_rad =
+        loop_fp32_constrain(_ctx.deps.motor.yaw->get_current_position() - infantry2_gimbal::YAW_MOTOR_OFFSET,
+            -PI, PI);
+    _ctx.data.current_yaw_motor_radps =
         _ctx.deps.motor.yaw->get_current_rotate();
 }
 
@@ -53,12 +54,12 @@ void infantry2_gimbal_t::_mec_control(infantry2_gimbal_ctx_t *ctx) {
     //pitch位置环
     ctx->data.target_pitch_radps =
         ctx->deps.pid.pitch_pos_pid->calculate(
-            ctx->data.target_pitch_rad, ctx->data.current_motor_pitch_rad);
+            ctx->data.target_pitch_rad, ctx->data.current_pitch_motor_rad);
     
     //pitch速度环
     ctx->data.out_pitch_torque =
         ctx->deps.pid.pitch_spd_pid->calculate(
-            ctx->data.target_pitch_radps, ctx->data.current_motor_pitch_radps)
+            ctx->data.target_pitch_radps, ctx->data.current_pitch_motor_radps)
         + ctx->data.gravity_compensate;
     
     ctx->data.out_pitch_torque = std::clamp(ctx->data.out_pitch_torque,
@@ -67,15 +68,20 @@ void infantry2_gimbal_t::_mec_control(infantry2_gimbal_ctx_t *ctx) {
     //yaw位置环
     ctx->data.target_yaw_radps =
         ctx->deps.pid.yaw_pos_pid->calculate(
-            ctx->data.target_yaw_rad, ctx->data.current_motor_yaw_rad);
+            ctx->data.target_yaw_rad, ctx->data.current_yaw_motor_rad);
     
     //yaw速度环
     ctx->data.out_yaw_torque =
         ctx->deps.pid.yaw_spd_pid->calculate(
-            ctx->data.target_yaw_radps, ctx->data.current_motor_yaw_radps);
+            ctx->data.target_yaw_radps, ctx->data.current_yaw_motor_radps);
 
     ctx->data.out_yaw_torque = std::clamp(ctx->data.out_yaw_torque,
         infantry2_gimbal::YAW_MIN_MOTOR_TORQUE, infantry2_gimbal::YAW_MAX_MOTOR_TORQUE);
+}
+
+void infantry2_gimbal_t::_send_motor_command(infantry2_gimbal_ctx_t *ctx) {
+    ctx->deps.motor.pitch->send_torque(ctx->data.out_pitch_torque);
+    ctx->deps.motor.yaw->send_torque(ctx->data.out_yaw_torque);
 }
 
 } // namespace pyro

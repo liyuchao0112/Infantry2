@@ -15,10 +15,22 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
         # === Application ===
 
         # === Gimbal 模块 ===
+        Gimbal/pyro_infantry2_gimbal.cpp
+        Gimbal/fsm/pyro_infantry2_gimbal_passive_state.cpp
+        Gimbal/fsm/pyro_infantry2_gimbal_active_state.cpp
 
         # === Chassis 模块 ===
 
         # === Booster 模块 ===
+        Booster/pyro_infantry2_booster.cpp
+        Booster/fsm/pyro_infantry2_booster_passive_state.cpp
+        Booster/fsm/pyro_infantry2_booster_active_state.cpp
+        Booster/fsm/pyro_infantry2_booster_waiting_state.cpp
+        Booster/fsm/pyro_infantry2_booster_ready_state.cpp
+        Booster/fsm/pyro_infantry2_booster_single_state.cpp
+        Booster/fsm/pyro_infantry2_booster_continue_state.cpp
+        Booster/fsm/pyro_infantry2_booster_cali_reverse_state.cpp
+        Booster/fsm/pyro_infantry2_booster_cali_forward_state.cpp
 
         # === Communication ===
 
@@ -30,6 +42,8 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
     target_include_directories(Infantry2
         PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/Gimbal
+        ${CMAKE_CURRENT_SOURCE_DIR}/Booster
     )
 
     target_compile_definitions(PYRo PUBLIC

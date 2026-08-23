@@ -5,22 +5,28 @@
 #include "pyro_motor_base.h"
 #include "pyro_algo_pid.h"
 
-#include "infantry2_gimbal_config.h"
+#include "infantry2_config.h"
 
 namespace pyro {
 
 struct infantry2_gimbal_cmd_t final : public cmd_base_t {
     bool is_enable; //云台是否启用，主要调试用，代码中不使用
 
+    bool is_imu_control;
+
     //由控制器产生的期望值
     float target_pitch_angle, target_yaw_angle;
     float target_pitch_delta_angle, target_yaw_delta_angle; //位置环模拟移动速度
 
-    bool is_imu_control;
+    enum class state_t {
+        MANUAL,
+        AUTO,
+        ALIGN
+    } state;
 
     infantry2_gimbal_cmd_t() 
         : is_enable(false), target_pitch_angle(0.0f), target_yaw_angle(0.0f),
-            target_pitch_delta_angle(0.0f), target_yaw_delta_angle(0.0f), is_imu_control(false) {}
+            target_pitch_delta_angle(0.0f), target_yaw_delta_angle(0.0f), state(state_t::MANUAL) {}
 };
 
 struct infantry2_gimbal_deps_t {
@@ -42,20 +48,18 @@ struct infantry2_gimbal_deps_t {
 
 struct infantry2_gimbal_data_t {
     //当前状态（电机反馈）
-    float current_motor_pitch_rad{0.0f};
-    float current_motor_pitch_radps{0.0f};
-    float current_motor_yaw_rad{0.0f};
-    float current_motor_yaw_radps{0.0f};
-    float current_motor_roll_rad{0.0f};
-    float current_motor_roll_radps{0.0f};
+    float current_pitch_motor_rad{0.0f};
+    float current_pitch_motor_radps{0.0f};
+    float current_yaw_motor_rad{0.0f};
+    float current_yaw_motor_radps{0.0f};
 
     //当前状态（imu反馈）
-    float current_imu_pitch_rad{0.0f};
-    float current_imu_pitch_radps{0.0f};
-    float current_imu_yaw_rad{0.0f};
-    float current_imu_yaw_radps{0.0f};
-    float current_imu_roll_rad{0.0f};
-    float current_imu_roll_radps{0.0f};
+    float current_pitch_imu_rad{0.0f};
+    float current_pitch_imu_radps{0.0f};
+    float current_yaw_imu_rad{0.0f};
+    float current_yaw_imu_radps{0.0f};
+    float current_roll_imu_rad{0.0f};
+    float current_roll_imu_radps{0.0f};
 
     //计算后的目标值
     float target_pitch_rad{0.0f};

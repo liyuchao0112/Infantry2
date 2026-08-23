@@ -30,7 +30,9 @@ extern "C" {
         // 3. 初始化 IMU (BMI088)
         ins_drv = ins_drv_t::get_instance();
         ins_config_t ins_cfg;
-        ins_cfg.direct = ins_config_t::imu_direct_t::DIRECT_4;
+        ins_cfg.calibrate = IMU_CALIBRATION_EN;
+
+        ins_cfg.direct = ins_config_t::imu_direct_t::DIRECT_1;
         ins_cfg.gx_offset = 0.00111946755;  // 陀螺仪零偏
         ins_cfg.gy_offset = -0.000167405276;
         ins_cfg.gz_offset = -3.67829443e-06;
