@@ -13,6 +13,12 @@ status_t infantry2_booster_t::_init() {
     return PYRO_OK;
 }
 
+void infantry2_booster_t::notify_single_shoot() {
+    taskENTER_CRITICAL();
+    _ctx.data.notify_ev |= EVENT_BIT_SINGLE_SHOOT;
+    taskEXIT_CRITICAL();
+}
+
 void infantry2_booster_t::_update_feedback() {
     _ctx.deps.motor.fric[0]->update_feedback();
     _ctx.deps.motor.fric[1]->update_feedback();
@@ -42,9 +48,9 @@ void infantry2_booster_t::_update_feedback() {
 void infantry2_booster_t::_fsm_execute() {
     _ctx.cmd = &_current_cmd;
     
-    if(_ctx.cmd->mode == cmd_base_t::mode_t::PASSIVE)
+    if(_ctx.cmd->mode == infantry2_booster_cmd_t::mode_t::PASSIVE)
         _main_fsm.change_state(&_passive_state);
-    else if(_ctx.cmd->mode == cmd_base_t::mode_t::ACTIVE)
+    else if(_ctx.cmd->mode == infantry2_booster_cmd_t::mode_t::ACTIVE)
         _main_fsm.change_state(&_active_state);
 
     _main_fsm.execute(this);

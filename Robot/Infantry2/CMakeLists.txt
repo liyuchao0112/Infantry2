@@ -13,11 +13,15 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
     target_sources(Infantry2
         PRIVATE
         # === Application ===
+        Application/Gimbal_board/pyro_booster_app.cpp
+        Application/Gimbal_board/pyro_gimbal_app.cpp
 
         # === Gimbal 模块 ===
         Gimbal/pyro_infantry2_gimbal.cpp
         Gimbal/fsm/pyro_infantry2_gimbal_passive_state.cpp
         Gimbal/fsm/pyro_infantry2_gimbal_active_state.cpp
+        Gimbal/fsm/pyro_infantry2_gimbal_manual_state.cpp
+        Gimbal/fsm/pyro_infantry2_gimbal_auto_state.cpp
 
         # === Chassis 模块 ===
 

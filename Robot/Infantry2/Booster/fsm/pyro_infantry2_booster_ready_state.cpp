@@ -12,7 +12,9 @@ void infantry2_booster_t::fsm_active_t::state_ready_t::execute(owner *owner) {
     if(!owner->_ctx.cmd->is_fric_on || !_is_fric_ready(&owner->_ctx))
         request_switch(&owner->_active_state._waiting_state);
     else {
-        if(owner->_ctx.cmd->fire_licence && owner->_ctx.cmd->single_shoot) {
+        if(owner->_ctx.cmd->fire_licence &&
+                (owner->_ctx.data.notify_ev & infantry2_booster_t::EVENT_BIT_SINGLE_SHOOT)) {
+            owner->_ctx.data.notify_ev &= ~infantry2_booster_t::EVENT_BIT_SINGLE_SHOOT; // 消费
             if(owner->_ctx.data.is_calibrated)
                 request_switch(&owner->_active_state._single_state);
             else

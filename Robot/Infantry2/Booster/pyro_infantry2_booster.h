@@ -11,15 +11,12 @@
 namespace pyro {
 
 struct infantry2_booster_cmd_t final : public cmd_base_t {
-    bool is_enable; //发射机构是否启用，主要调试用，代码中不使用
-
     bool is_fric_on;            // 摩擦轮是否开启
-    bool single_shoot;          // 触发单发
     bool continue_shoot;        // 触发连发
     bool heat_control_on{false}; // 热量控制开关，false时跳过所有热量限制（调试用）
     bool fire_licence{};        // 发射许可，为false时拨弹盘绝对不允许转动
 
-    infantry2_booster_cmd_t() : is_enable(false), is_fric_on(false), single_shoot(false), continue_shoot(false),
+    infantry2_booster_cmd_t() : is_fric_on(false), continue_shoot(false),
         fire_licence(false) {}
 };
 
@@ -56,6 +53,7 @@ struct infantry2_booster_data_t {
     bool is_calibrated{false};
 
     uint32_t block_start_tick{0};
+    volatile uint32_t notify_ev{0};  // 一次性事件位（跨任务置位，模块独享消费）
 
     enum class trigger_pid_mode_t {
         POS,
@@ -80,6 +78,9 @@ class infantry2_booster_t final
     friend class module_base_t<infantry2_booster_t, infantry2_booster_module_params_t>;
 
   public:
+    static constexpr uint32_t EVENT_BIT_SINGLE_SHOOT = (1u << 0);  // 单发事件位
+    void notify_single_shoot();  // 投递单发事件（遥控/自瞄调用）
+
     infantry2_booster_t(const infantry2_booster_t&) = delete;
     infantry2_booster_t &operator=(const infantry2_booster_t&) = delete;
 

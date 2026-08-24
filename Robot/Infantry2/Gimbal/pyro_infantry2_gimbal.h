@@ -10,8 +10,6 @@
 namespace pyro {
 
 struct infantry2_gimbal_cmd_t final : public cmd_base_t {
-    bool is_enable; //云台是否启用，主要调试用，代码中不使用
-
     bool is_imu_control;
 
     //由控制器产生的期望值
@@ -25,7 +23,7 @@ struct infantry2_gimbal_cmd_t final : public cmd_base_t {
     } state;
 
     infantry2_gimbal_cmd_t() 
-        : is_enable(false), target_pitch_angle(0.0f), target_yaw_angle(0.0f),
+        : is_imu_control(true), target_pitch_angle(0.0f), target_yaw_angle(0.0f),
             target_pitch_delta_angle(0.0f), target_yaw_delta_angle(0.0f), state(state_t::MANUAL) {}
 };
 
@@ -130,12 +128,6 @@ class infantry2_gimbal_t final
             void exit(owner *owner) override;
         };
 
-        struct state_align_t : public state_t<owner> {
-            void enter(owner *owner) override;
-            void execute(owner *owner) override;
-            void exit(owner *owner) override;
-        };
-
         void on_enter(owner *owner) override;
         void on_execute(owner *owner) override;
         void on_exit(owner *owner) override;
@@ -143,7 +135,6 @@ class infantry2_gimbal_t final
       private:
         state_manual_t _manual_state;
         state_auto_t _auto_state;
-        state_align_t _align_state;
     };
 
     state_passive_t _passive_state;

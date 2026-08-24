@@ -79,6 +79,35 @@ void infantry2_gimbal_t::_mec_control(infantry2_gimbal_ctx_t *ctx) {
         infantry2_gimbal::YAW_MIN_MOTOR_TORQUE, infantry2_gimbal::YAW_MAX_MOTOR_TORQUE);
 }
 
+void infantry2_gimbal_t::_imu_control(infantry2_gimbal_ctx_t *ctx) {
+    //pitch位置环
+    ctx->data.target_pitch_radps =
+        ctx->deps.pid.pitch_pos_pid->calculate(
+            ctx->data.target_pitch_rad, ctx->data.current_pitch_imu_rad);
+    
+    //pitch速度环
+    ctx->data.out_pitch_torque =
+        ctx->deps.pid.pitch_spd_pid->calculate(
+            ctx->data.target_pitch_radps, ctx->data.current_pitch_imu_radps)
+        + ctx->data.gravity_compensate;
+    
+    ctx->data.out_pitch_torque = std::clamp(ctx->data.out_pitch_torque,
+        infantry2_gimbal::PITCH_MIN_MOTOR_TORQUE, infantry2_gimbal::PITCH_MAX_MOTOR_TORQUE);
+
+    //yaw位置环
+    ctx->data.target_yaw_radps =
+        ctx->deps.pid.yaw_pos_pid->calculate(
+            ctx->data.target_yaw_rad, ctx->data.current_yaw_imu_rad);
+    
+    //yaw速度环
+    ctx->data.out_yaw_torque =
+        ctx->deps.pid.yaw_spd_pid->calculate(
+            ctx->data.target_yaw_radps, ctx->data.current_yaw_imu_radps);
+
+    ctx->data.out_yaw_torque = std::clamp(ctx->data.out_yaw_torque,
+        infantry2_gimbal::YAW_MIN_MOTOR_TORQUE, infantry2_gimbal::YAW_MAX_MOTOR_TORQUE);
+}
+
 void infantry2_gimbal_t::_send_motor_command(infantry2_gimbal_ctx_t *ctx) {
     ctx->deps.motor.pitch->send_torque(ctx->data.out_pitch_torque);
     ctx->deps.motor.yaw->send_torque(ctx->data.out_yaw_torque);
