@@ -56,13 +56,14 @@ extern "C" {
 
 #ifdef REFEREE_UART
         REFEREE_UART.reset(115200, UART_WORDLENGTH_8B, UART_STOPBITS_1,
-                           UART_PARITY_NONE);
+                            UART_PARITY_NONE);
         REFEREE_UART.enable_rx_dma();
         referee_drv_t::get_instance()->init();
 #endif
 
 #ifdef SUPERCAP_UART
-        SUPERCAP_UART.reset(115200, ...);
+        SUPERCAP_UART.reset(115200, UART_WORDLENGTH_8B, UART_STOPBITS_1,
+                            UART_PARITY_NONE);
         SUPERCAP_UART.enable_rx_dma();
         supercap_drv_t::get_instance()->start_rx();
 #endif

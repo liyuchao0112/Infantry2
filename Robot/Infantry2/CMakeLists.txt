@@ -1,8 +1,5 @@
 add_library(Infantry2 OBJECT)
 
-set(BOARD "GIMBAL_BOARD")
-#set(BOARD "CHASSIS_BOARD")
-
 target_compile_definitions(Infantry2 PRIVATE
     BOARD=${BOARD}
     GIMBAL_BOARD=1
@@ -61,7 +58,9 @@ elseif (BOARD STREQUAL "CHASSIS_BOARD")
         PRIVATE
         # === Application ===
 
+
         # === Chassis 模块 ===
+        Chassis/pyro_infantry2_chassis.cpp
 
         # === Communication ===
 
@@ -73,11 +72,12 @@ elseif (BOARD STREQUAL "CHASSIS_BOARD")
     target_include_directories(Infantry2
         PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/Chassis
     )
 
     target_compile_definitions(PYRo PUBLIC
         REFEREE_UART=PYRO_UART1
-        SUPERCAP_UART=PYRO_UART7
+        # SUPERCAP_UART=PYRO_UART7
     )
 endif()
 

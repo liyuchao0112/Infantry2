@@ -19,7 +19,7 @@ extern "C" {
         xTaskCreate(infantry2_booster_init, "pyro_booster_init", 512, nullptr,
                     configMAX_PRIORITIES - 2, nullptr);
 #elif BOARD == CHASSIS_BOARD
-
+        
 #endif
         vTaskDelete(nullptr);
     }

@@ -51,6 +51,15 @@ namespace infantry2_booster {
 
 #elif BOARD == CHASSIS_BOARD
 
+#define CHASSIS_EN 1
+
+namespace infantry2_chassis {
+
+    constexpr float YAW_MOTOR_OFFSET{0.0f};
+    constexpr float RUDDER_MOTOR_OFFSET[4]{0.0f, 0.0f, 0.0f, 0.0f};
+
+} //namespace infantry2_chassis
+
 #endif
 
 #endif // __INFANTRY2_CONFIG_H__

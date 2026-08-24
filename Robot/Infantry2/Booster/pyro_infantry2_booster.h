@@ -16,8 +16,7 @@ struct infantry2_booster_cmd_t final : public cmd_base_t {
     bool heat_control_on{false}; // 热量控制开关，false时跳过所有热量限制（调试用）
     bool fire_licence{};        // 发射许可，为false时拨弹盘绝对不允许转动
 
-    infantry2_booster_cmd_t() : is_fric_on(false), continue_shoot(false),
-        fire_licence(false) {}
+    infantry2_booster_cmd_t() : is_fric_on(false), continue_shoot(false), fire_licence(false) {}
 };
 
 struct infantry2_booster_deps_t {
