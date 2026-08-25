@@ -5,6 +5,7 @@
 #include "pyro_can_drv.h"
 
 #include "pyro_power_control.h"
+#include "pyro_board_comm.h"
 
 
 float test_imutarget;
@@ -435,19 +436,13 @@ void rudder_chassis_t::_send_motor_command() const
 
 void rudder_chassis_t::_communicate_gimbal() const
 {
-    uint8_t  tx_data[8];
-    tx_data[0] = _ctx.data.bus_tx_data[0];
-    tx_data[1] = _ctx.data.bus_tx_data[1];
-    tx_data[2] = _ctx.data.bus_tx_data[2];
-    tx_data[3] = _ctx.data.bus_tx_data[3];
-    
-    memcpy(&tx_data[4], &_ctx.data.bus_tx_data[4], 4);
+    c2g_msg_t msg{};
+    msg.data[0] = _ctx.data.bus_tx_data[0];
+    msg.data[1] = _ctx.data.bus_tx_data[1];
+    msg.data[2] = _ctx.data.bus_tx_data[2];
+    msg.data[3] = _ctx.data.bus_tx_data[3];
 
-    pyro::can_drv_t &can = pyro::bsp_can::get_can3();
-    pyro::status_t status = can.send_msg(0x133, tx_data);
-
-    
-
+    pyro::board_comm_t::instance().send(msg);
 }
 
 void rudder_chassis_t::_fsm_execute()

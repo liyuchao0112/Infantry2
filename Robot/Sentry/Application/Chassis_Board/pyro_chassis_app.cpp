@@ -9,6 +9,7 @@
 #include "pyro_motor_base.h"
 #include "pyro_bsp_can.h"
 #include "pyro_can_drv.h"
+#include "pyro_board_comm.h"
 
 using namespace pyro;
 
@@ -17,48 +18,33 @@ static pyro::rudder_chassis_t *rudder_chassis_ptr       = nullptr;
 static pyro::rudder_cmd_t *rudder_cmd_ptr               = nullptr;
 static pyro::rudder_deps_t *rudder_deps_ptr             = nullptr;
 
-static pyro::can_msg_buffer_t imu_buffer(0x103); // 订阅 ID 0x103
-static pyro::can_msg_buffer_t gimbal_buffer(0x132); // 订阅 ID 0x103
 float test_imu11;
 
 
 extern "C"
-{ 
+{
 
 
 static void deps_init();
 static void chassis_rxcmd();
 static void chassis_dr162cmd();
 static void imu2chassis();
+
 void imu2chassis()
-    {
-        
+{
+    imu2chassis_msg_t msg;
+    if (!pyro::board_comm_t::instance().read(msg))
+        return;
 
+    if (msg.yaw_deg == 0)
+        return;
 
-        if (imu_buffer.is_fresh())
-        {
-        std::array<uint8_t, 8> raw_data;
-        imu_buffer.get_data(raw_data);
+    rudder_cmd_ptr->imu_yaw_rad   = msg.yaw_deg / 180 * PI;
+    rudder_cmd_ptr->imu_yaw_radps = msg.yaw_radps;
 
-        // 处理数据 
-        float imu_angle;
-        float imu_radps;
-        memcpy(&imu_angle, raw_data.data(), 4);
-        memcpy(&imu_radps, raw_data.data() + 4, 4);
-        if (imu_angle == 0)
-            return;
-            
-        rudder_cmd_ptr->imu_yaw_rad = imu_angle/ 180 * PI;
-        
-        rudder_cmd_ptr->imu_yaw_radps = imu_radps;
-        
-        test_imu11=rudder_cmd_ptr->imu_yaw_rad;
-        // 标记已读，等待下一条消息
-        imu_buffer.mark_read();
-        }
+    test_imu11 = rudder_cmd_ptr->imu_yaw_rad;
+}
 
-
-    }
 void deps_init()
 {
     rudder_deps_ptr = new pyro::rudder_deps_t();
@@ -105,7 +91,7 @@ void deps_init()
     // rudder_deps_ptr->pid_deps.yaw_spd_pid =565
     //     new pid_t(0.3f, 0.0f, 0.7f, 0.0f, 10.0f);
     rudder_deps_ptr->pid_deps.yaw_spd_pid =
-        new pid_t(2.0f, 0.0f, 0.025f, 0.0f, 10.0f);  
+        new pid_t(2.0f, 0.0f, 0.025f, 0.0f, 10.0f);
 
 
     // rudder_deps_ptr->pid_deps.yaw_pos_pid =
@@ -151,40 +137,30 @@ void deps_init()
         new pid_t(0.13f, 0.0f, 0.00f, 0.0f, 3.0f);
     rudder_deps_ptr->pid_deps.rudder_spd_pid[3] =
         new pid_t(0.13f, 0.0f, 0.00f, 0.0f, 3.0f);
-    
 }
 
 void chassis_rxcmd()
 {
+    g2c_msg_t msg;
+    if (!pyro::board_comm_t::instance().read(msg))
+        return;
 
+    rudder_cmd_ptr->vx =
+        2.0f * static_cast<float>(msg.vx) / 127.0f;
+    rudder_cmd_ptr->vy =
+        2.0f * static_cast<float>(msg.vy) / 127.0f;
+    rudder_cmd_ptr->delta_yaw =
+        -0.004f * static_cast<float>(msg.delta_yaw) / 127.0f;
 
+    rudder_cmd_ptr->mode =
+        msg.active() ? pyro::cmd_base_t::mode_t::ACTIVE : pyro::cmd_base_t::mode_t::PASSIVE;
+    rudder_cmd_ptr->follow_yaw = msg.follow_en();
+    rudder_cmd_ptr->spinning   = msg.spinning();
 
-        if (gimbal_buffer.is_fresh())
-        {
-        std::array<uint8_t, 8> raw_data;
-        gimbal_buffer.get_data(raw_data);
-
-        // 处理数据 
-        rudder_cmd_ptr->vx =
-            2.0f * static_cast<float>(static_cast<int8_t>(raw_data[0])) / 127.0f;
-        rudder_cmd_ptr->vy =
-            2.0f * static_cast<float>(static_cast<int8_t>(raw_data[1])) / 127.0f;
-        rudder_cmd_ptr->delta_yaw =
-            -0.004f * static_cast<float>(static_cast<int8_t>(raw_data[2]))/127.0f;
-
-        rudder_cmd_ptr->mode =
-            static_cast<pyro::cmd_base_t::mode_t>(raw_data[3] & 0x01);
-        rudder_cmd_ptr->follow_yaw    = (raw_data[3] & 0x02);
-
-        rudder_cmd_ptr->spinning      = (raw_data[3] & 0x04);  
-
-        if(rudder_cmd_ptr->spinning == true){
-            rudder_cmd_ptr->follow_yaw = false;
-        }
-        // 标记已读，等待下一条消息
-        gimbal_buffer.mark_read();
-        }
-
+    if (rudder_cmd_ptr->spinning == true)
+    {
+        rudder_cmd_ptr->follow_yaw = false;
+    }
 }
 
 void chassis_dr162cmd()
@@ -207,7 +183,7 @@ void chassis_dr162cmd()
         rudder_cmd_ptr->wz          = 0.002f * vrc.axes.ry;
         rudder_cmd_ptr->delta_yaw   = -0.003f * vrc.axes.rx;
         rudder_cmd_ptr->mode        = pyro::cmd_base_t::mode_t::ACTIVE;
-        
+
         if (pyro::sw_pos_t::DOWN == vrc.switches.right.current_pos)
         {
             rudder_cmd_ptr->follow_yaw = true;
@@ -219,43 +195,32 @@ void chassis_dr162cmd()
     }
 }
 
-    void sentry_chassis_thread(void *argument)
+void sentry_chassis_thread(void *argument)
+{
+    while (true)
     {
-        while (true)
-        {
-            chassis_rxcmd();
-            // 如果后续希望由底盘板直接解算 RC，可以取消下面这行的注释
-            //chassis_dr162cmd();
-            imu2chassis();
-            rudder_chassis_ptr->set_command(*rudder_cmd_ptr);
-            vTaskDelay(1);
-        }
+        chassis_rxcmd();
+        // 如果后续希望由底盘板直接解算 RC，可以取消下面这行的注释
+        //chassis_dr162cmd();
+        imu2chassis();
+        rudder_chassis_ptr->set_command(*rudder_cmd_ptr);
+        vTaskDelay(1);
     }
+}
 
+void sentry_chassis_init(void *argument)
+{
+    rudder_cmd_ptr     = new pyro::rudder_cmd_t();
+    rudder_chassis_ptr = pyro::rudder_chassis_t::instance();
 
-    void sentry_chassis_init(void *argument)
-    {
-        
-        pyro::can_drv_t &can3 = pyro::bsp_can::get_can3();
+    deps_init();
+    rudder_chassis_ptr->configure(*rudder_deps_ptr);
+    rudder_chassis_ptr->start();
 
-    // 注册缓冲区（重复注册同一 ID 会返回 PYRO_ERROR）
-        can3.register_rx_msg(&imu_buffer);
-        can3.register_rx_msg(&gimbal_buffer);
+    xTaskCreate(sentry_chassis_thread, "start_sentry_chassis_thread", 512,
+                nullptr, configMAX_PRIORITIES - 1, nullptr);
 
-
-        
-        rudder_cmd_ptr     = new pyro::rudder_cmd_t();
-        rudder_chassis_ptr = pyro::rudder_chassis_t::instance();
-
-        deps_init();
-        rudder_chassis_ptr->configure(*rudder_deps_ptr);
-        rudder_chassis_ptr->start();
-
-        xTaskCreate(sentry_chassis_thread, "start_sentry_chassis_thread", 512,
-                    nullptr, configMAX_PRIORITIES - 1, nullptr);
-
-        
-        vTaskDelete(nullptr);
-    }
+    vTaskDelete(nullptr);
+}
 
 }

@@ -37,7 +37,8 @@ public:
             return false;
 
         std::array<uint8_t, 8> raw{};
-        _buffer.get_data(raw);
+        if (!_buffer.get_data(raw))
+            return false;
         std::memcpy(&_cache, raw.data(), sizeof(T));
         _buffer.mark_read();
         _fresh = true;

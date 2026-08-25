@@ -37,8 +37,8 @@ struct c2g_msg_t
 // 0x103 云台IMU→底盘
 struct imu2chassis_msg_t
 {
-    float yaw_rad;
-    float yaw_radps;
+    float yaw_deg;    // 航向角（度），接收端自行转弧度
+    float yaw_radps;  // 航向角速度（rad/s）
 
     static constexpr uint32_t ID = 0x103;
     static constexpr bsp_can::which_can BUS = bsp_can::can3;

@@ -10,10 +10,10 @@ status_t board_comm_t::init()
     // ==== 订阅清单（按板子区分）====
     // 注意：现有 app 仍占用这些 ID，迁移前先保持注释，避免 register_rx_msg 冲突。
 #if BOARD == CHASSIS_BOARD
-    // rx_subscription_t<g2c_msg_t>::get().register_on(bsp_can::can3);         // 收云台控制
-    // rx_subscription_t<imu2chassis_msg_t>::get().register_on(bsp_can::can3); // 收 IMU
+    rx_subscription_t<g2c_msg_t>::get().register_on(bsp_can::can3);         // 收云台控制
+    rx_subscription_t<imu2chassis_msg_t>::get().register_on(bsp_can::can3); // 收 IMU
 #elif BOARD == GIMBAL_BOARD
-    // rx_subscription_t<c2g_msg_t>::get().register_on(bsp_can::can3);         // 收底盘数据
+    rx_subscription_t<c2g_msg_t>::get().register_on(bsp_can::can3);         // 收底盘数据
 #endif
     // ==== 两板公共的外部设备订阅在此追加（不放进 #if 分支）====
     // rx_subscription_t<ext_dev_msg_t>::get().register_on(bsp_can::canX);
