@@ -58,6 +58,21 @@ namespace infantry2_chassis {
     constexpr float YAW_MOTOR_OFFSET{0.0f};
     constexpr float RUDDER_MOTOR_OFFSET[4]{0.0f, 0.0f, 0.0f, 0.0f};
 
+    constexpr float YAW_DEADZONE{0.01f};
+    
+    constexpr float WHEELBASE{1.41421356237f}, TRACK_WIDTH{1.41421356237f};
+
+    constexpr float WHEEL_RADIUS{0.076f};
+
+    constexpr float SPIN_SPEED{1.0f};
+
+    // ===== 板间遥控器指令 -> 速度控制参数 (底盘侧) =====
+    constexpr float MAX_VX{10.0f};              // m/s    前后限速
+    constexpr float MAX_VY{10.0f};              // m/s    左右限速
+    constexpr float MAX_WZ{4.0f};              // rad/s  旋转限速
+    constexpr float MAX_ACCEL{6.0f};           // 加速度限幅 (平移 m/s², 旋转 rad/s²)
+    constexpr uint32_t LOST_TIMEOUT_MS{50};    // 掉线停车阈值 (ms)
+
 } //namespace infantry2_chassis
 
 #endif

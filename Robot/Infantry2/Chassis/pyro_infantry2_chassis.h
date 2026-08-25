@@ -4,6 +4,7 @@
 #include "pyro_module_base.h"
 #include "pyro_motor_base.h"
 #include "pyro_algo_pid.h"
+#include "pyro_kin_rudder.h"
 
 #include "infantry2_config.h"
 
@@ -40,20 +41,22 @@ struct infantry2_chassis_deps_t {
 };
 
 struct infantry2_chassis_data_t {
-    float target_wheel_radps[4]{0.0f};
-    float target_rudder_rad[4]{0.0f};
+    rudder_kin_t::rudder_states_t current_states{};
+    rudder_kin_t::rudder_states_t target_states{};
+
     float target_rudder_radps[4]{0.0f};
+    float current_rudder_radps[4]{0.0f};
+
     float target_yaw_rad{0.0f};
     float target_yaw_radps{0.0f};
 
-    float current_wheel_radps[4]{0.0f};
-    float current_rudder_rad[4]{0.0f};
-    float current_rudder_radps[4]{0.0f};
     float current_yaw_rad{0.0f};
     float current_yaw_radps{0.0f};
 
     float out_wheel_torque[4]{0.0f};
     float out_rudder_torque[4]{0.0f};
+
+    float spin_rata{1.0f}, move_rata{1.0f};
 };
 
 struct infantry2_chassis_ctx_t {
@@ -80,15 +83,19 @@ class infantry2_chassis_t final
     infantry2_chassis_t();
     ~infantry2_chassis_t() override = default;
 
+    inline static rudder_kin_t _kinematics{infantry2_chassis::WHEELBASE, infantry2_chassis::TRACK_WIDTH};
+
     // 基类接口
     status_t _init() override;           // 资源初始化
     void _update_feedback() override;    // 传感器/电机反馈更新
     void _fsm_execute() override;        // 状态机调度入口
 
     // 业务逻辑方法
-    void _kinematics_solve(infantry2_chassis_ctx_t *ctx);
-    void _chassis_control(infantry2_chassis_ctx_t *ctx);
-    void _send_motor_command(infantry2_chassis_ctx_t *ctx);
+    static void _normal_solve(infantry2_chassis_ctx_t *ctx);
+    static void _follow_yaw_solve(infantry2_chassis_ctx_t *ctx);
+    static void _spin_solve(infantry2_chassis_ctx_t *ctx);
+    static void _chassis_control(infantry2_chassis_ctx_t *ctx);
+    static void _send_motor_command(infantry2_chassis_ctx_t *ctx);
 
     // 状态机定义（内嵌类）
     using owner = infantry2_chassis_t;

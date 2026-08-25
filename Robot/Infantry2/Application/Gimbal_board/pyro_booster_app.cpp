@@ -26,8 +26,6 @@ infantry2_booster_t *booster_ptr = nullptr;
 
 static TaskHandle_t booster_task_handle = nullptr;
 
-virtual_rc_t d_vrc;
-
 void booster_config() {
     //摩擦轮电机初始化
     booster_deps_ptr->motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, bsp_can::can1);
@@ -161,8 +159,6 @@ extern "C" {
                     configMAX_PRIORITIES - 1, &booster_task_handle);
         
         auto &vrc = pyro::rc_drv_t::read();
-        
-        d_vrc = vrc;
 
         // --- VT03 按键绑定 ---
         pyro::btn_broker::subscribe(&vrc.buttons.fn_l, pyro::btn_event_t::PRESS_DOWN,

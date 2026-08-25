@@ -4,6 +4,8 @@
 #include "pyro_rc_base_drv.h"
 #include "pyro_vt03_rc_drv.h"
 #include "pyro_dr16_rc_drv.h"
+#include "pyro_bsp_can.h"
+#include "pyro_board_comm.h"
 
 using namespace pyro;
 
@@ -12,6 +14,7 @@ infantry2_gimbal_deps_t *gimbal_deps_ptr = nullptr;
 infantry2_gimbal_t *gimbal_ptr = nullptr;
 
 static TaskHandle_t gimbal_task_handle = nullptr;
+static uint8_t chassis_seq = 0;
 
 // virtual_rc_t d_vrc;
 
@@ -80,11 +83,67 @@ void gimbal_dr162cmd(uint32_t notify_val) {
     }
 }
 
+// 云台板 -> 底盘板: 解析遥控器并打包发送底盘指令
+// 摇杆映射: ly=前后, lx=左右, wheel=旋转; 拨杆决定 mode/state (可自行调整)
+void gimbal2chassis() {
+    pyro::infantry2_chassis_rc_u u{};
+    bool online = false;
+
+    if (vt03_drv_t::instance().check_online()) {
+        online = true;
+        pyro::read_scope_lock lock(pyro::rc_drv_t::get_lock());
+        auto &vrc = pyro::rc_drv_t::read();
+        u.cmd.vx = pyro::rc_norm(vrc.axes.ly);     // 前后
+        u.cmd.vy = pyro::rc_norm(vrc.axes.lx);     // 左右
+        u.cmd.wz = pyro::rc_norm(vrc.axes.wheel);  // 旋转
+
+        if (vrc.switches.gear.current_pos == pyro::sw_pos_t::UP) {
+            u.cmd.mode  = pyro::MODE_PASSIVE;
+            u.cmd.state = pyro::STATE_NORMAL;
+        } else if (vrc.switches.gear.current_pos == pyro::sw_pos_t::MID) {
+            u.cmd.mode  = pyro::MODE_ACTIVE;
+            u.cmd.state = pyro::STATE_NORMAL;
+        } else if (vrc.switches.gear.current_pos == pyro::sw_pos_t::DOWN) {
+            u.cmd.mode  = pyro::MODE_ACTIVE;
+            u.cmd.state = pyro::STATE_SPIN;   // 小陀螺, 可按需改
+        }
+    } else if (dr16_drv_t::instance().check_online()) {
+        online = true;
+        pyro::read_scope_lock lock(pyro::rc_drv_t::get_lock());
+        auto &vrc = pyro::rc_drv_t::read();
+        u.cmd.vx = pyro::rc_norm(vrc.axes.ly);
+        u.cmd.vy = pyro::rc_norm(vrc.axes.lx);
+        u.cmd.wz = pyro::rc_norm(vrc.axes.wheel);
+
+        if (vrc.switches.right.current_pos == pyro::sw_pos_t::UP) {
+            u.cmd.mode  = pyro::MODE_PASSIVE;
+            u.cmd.state = pyro::STATE_NORMAL;
+        } else if (vrc.switches.right.current_pos == pyro::sw_pos_t::MID) {
+            u.cmd.mode  = pyro::MODE_ACTIVE;
+            u.cmd.state = pyro::STATE_NORMAL;
+        } else if (vrc.switches.right.current_pos == pyro::sw_pos_t::DOWN) {
+            u.cmd.mode  = pyro::MODE_ACTIVE;
+            u.cmd.state = pyro::STATE_SPIN;
+        }
+    }
+
+    // 遥控器离线兜底: 发 PASSIVE, 防止底盘误动
+    if (!online) {
+        u.cmd.mode  = pyro::MODE_PASSIVE;
+        u.cmd.state = pyro::STATE_NORMAL;
+        u.cmd.vx = u.cmd.vy = u.cmd.wz = 0;
+    }
+
+    u.cmd.seq = ++chassis_seq;
+    pyro::bsp_can::get_can1().send_msg(pyro::CHASSIS_CMD_ID, u.data.data());
+}
+
 extern "C" {
     void infantry2_gimbal_thread(void *argument) {
         while(true) {
 #if GIMBAL_EN
             uint32_t notify_val = 0;
+
             xTaskNotifyWait(0x00, UINT32_MAX, &notify_val, 0);
 
             if (vt03_drv_t::instance().check_online()) {
@@ -99,7 +158,10 @@ extern "C" {
             gimbal_cmd_ptr->mode = infantry2_gimbal_cmd_t::mode_t::PASSIVE;
 #endif
             gimbal_ptr->set_command(*gimbal_cmd_ptr);
-            
+
+            // 解析并发送底盘指令 (云台板 -> 底盘板)
+            gimbal2chassis();
+
             vTaskDelay(1);
         }
     }

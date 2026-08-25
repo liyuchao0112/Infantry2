@@ -20,8 +20,6 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
         Gimbal/fsm/pyro_infantry2_gimbal_manual_state.cpp
         Gimbal/fsm/pyro_infantry2_gimbal_auto_state.cpp
 
-        # === Chassis 模块 ===
-
         # === Booster 模块 ===
         Booster/pyro_infantry2_booster.cpp
         Booster/fsm/pyro_infantry2_booster_passive_state.cpp
@@ -57,10 +55,15 @@ elseif (BOARD STREQUAL "CHASSIS_BOARD")
     target_sources(Infantry2
         PRIVATE
         # === Application ===
-
+        Application/Chassis_board/pyro_chassis_app.cpp
 
         # === Chassis 模块 ===
         Chassis/pyro_infantry2_chassis.cpp
+        Chassis/fsm/pyro_infantry2_chassis_passive_state.cpp
+        Chassis/fsm/pyro_infantry2_chassis_active_state.cpp
+        Chassis/fsm/pyro_infantry2_chassis_follow_yaw_state.cpp
+        Chassis/fsm/pyro_infantry2_chassis_spin_state.cpp
+        Chassis/fsm/pyro_infantry2_chassis_normal_state.cpp
 
         # === Communication ===
 
@@ -85,6 +88,7 @@ endif()
 target_include_directories(Infantry2
         PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/Communication
 )
 
 # ===================== 链接依赖库（保留原工程依赖，可按需增删） =====================

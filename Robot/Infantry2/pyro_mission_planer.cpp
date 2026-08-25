@@ -9,6 +9,7 @@ extern "C" {
 
     extern void infantry2_gimbal_init(void *argument);
     extern void infantry2_booster_init(void *argument);
+    extern void infantry2_chassis_init(void *argument);
 
     void start_mission_planer_task(void const *argument) {
         xTaskCreate(pyro_init_thread, "pyro_init_thread", 512, nullptr,
@@ -19,7 +20,8 @@ extern "C" {
         xTaskCreate(infantry2_booster_init, "pyro_booster_init", 512, nullptr,
                     configMAX_PRIORITIES - 2, nullptr);
 #elif BOARD == CHASSIS_BOARD
-        
+        xTaskCreate(infantry2_chassis_init, "pyro_chassis_init", 512, nullptr,
+                    configMAX_PRIORITIES - 2, nullptr);
 #endif
         vTaskDelete(nullptr);
     }
