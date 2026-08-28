@@ -33,7 +33,7 @@ struct infantry2_chassis_deps_t {
         pid_t *rud_pos_pid[4]{nullptr};
         pid_t *rud_spd_pid[4]{nullptr};
         pid_t *wheel_pid[4]{nullptr};
-        pid_t *yaw_follow_pid;
+        pid_t *yaw_follow_pid{nullptr};
     };
 
     motor_deps_t motor{};
@@ -47,8 +47,8 @@ struct infantry2_chassis_data_t {
     float target_rudder_radps[4]{0.0f};
     float current_rudder_radps[4]{0.0f};
 
-    float target_yaw_rad{0.0f};
-    float target_yaw_radps{0.0f};
+    float target_wheel_radps[4]{0.0f};
+    float current_wheel_radps[4]{0.0f};
 
     float current_yaw_rad{0.0f};
     float current_yaw_radps{0.0f};
@@ -91,9 +91,6 @@ class infantry2_chassis_t final
     void _fsm_execute() override;        // 状态机调度入口
 
     // 业务逻辑方法
-    static void _normal_solve(infantry2_chassis_ctx_t *ctx);
-    static void _follow_yaw_solve(infantry2_chassis_ctx_t *ctx);
-    static void _spin_solve(infantry2_chassis_ctx_t *ctx);
     static void _chassis_control(infantry2_chassis_ctx_t *ctx);
     static void _send_motor_command(infantry2_chassis_ctx_t *ctx);
 

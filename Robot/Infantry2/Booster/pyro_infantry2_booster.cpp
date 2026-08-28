@@ -40,7 +40,7 @@ void infantry2_booster_t::_update_feedback() {
     else if (delta_rad < -PI)
         delta_rad += 2.0f * PI;
 
-    _ctx.data.current_trigger_rad +=delta_rad / infantry2_booster::TRIGGER_REDUCTION_RATIO;
+    _ctx.data.current_trigger_rad += delta_rad / infantry2_booster::TRIGGER_REDUCTION_RATIO;
 
     _ctx.data.last_trigger_rad = now_trigger_rad;
 }

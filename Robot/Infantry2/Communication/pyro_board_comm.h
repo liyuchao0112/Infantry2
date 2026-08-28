@@ -59,8 +59,10 @@ inline int16_t rc_norm(float x, float deadzone = 0.02f) {
     if (x > -deadzone && x < deadzone)
         return 0;
     long v = (long)(x * CHASSIS_RC_SCALE);
-    if (v >  CHASSIS_RC_SCALE) v =  CHASSIS_RC_SCALE;
-    if (v < -CHASSIS_RC_SCALE) v = -CHASSIS_RC_SCALE;
+    if (v >  CHASSIS_RC_SCALE)
+        v =  CHASSIS_RC_SCALE;
+    if (v < -CHASSIS_RC_SCALE)
+        v = -CHASSIS_RC_SCALE;
     return (int16_t)v;
 }
 

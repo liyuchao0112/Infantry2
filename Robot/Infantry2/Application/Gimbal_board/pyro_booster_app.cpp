@@ -26,18 +26,21 @@ infantry2_booster_t *booster_ptr = nullptr;
 
 static TaskHandle_t booster_task_handle = nullptr;
 
-void booster_config() {
-    //摩擦轮电机初始化
-    booster_deps_ptr->motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, bsp_can::can1);
-    booster_deps_ptr->motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, bsp_can::can1);
-    //拨弹盘电机初始化
-    booster_deps_ptr->motor.trigger = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_4, bsp_can::can1);
+void booster_deps_init() {
+    // 摩擦轮电机初始化
+    booster_deps_ptr->motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, bsp_can::can2);
+    booster_deps_ptr->motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, bsp_can::can2);
+    // 拨弹盘电机初始化
+    booster_deps_ptr->motor.trigger = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_3, bsp_can::can1);
 
-    //摩擦轮pid初始化
+    // 弹速pid初始化
+    booster_deps_ptr->pid.bullet_spd_pid = new pid_t(0.0f, 0.0f, 0.0f, 1.0f, 20, 60.0f, 1, 15.0f, 1, 4);
+
+    // 摩擦轮pid初始化
     booster_deps_ptr->pid.fric_pid[0] = new pid_t(0.3f, 0.0f, 0.0f, 1.0f, 20, 60.0f, 1, 15.0f, 1, 4);
     booster_deps_ptr->pid.fric_pid[1] = new pid_t(0.3f, 0.0f, 0.0f, 1.0f, 20, 60.0f, 1, 15.0f, 1, 4);
 
-    //拨弹盘pid初始化
+    // 拨弹盘pid初始化
     booster_deps_ptr->pid.trigger_pos_pid = new pid_t(30.0f, 0.01f, 0.0f, 1.0f, 15.0f, 60.0f, 1, 30.0f, 1, 4);
     booster_deps_ptr->pid.trigger_spd_pid = new pid_t(4.0f, 0.01f, 0.0f, 1.0f, 15.0f, 60.0f, 1, 30, 1, 4);
 }
@@ -151,7 +154,7 @@ extern "C" {
         booster_deps_ptr = new infantry2_booster_deps_t();
         booster_ptr = infantry2_booster_t::instance();
 
-        booster_config();
+        booster_deps_init();
         booster_ptr->configure(*booster_deps_ptr);
         booster_ptr->start();
 

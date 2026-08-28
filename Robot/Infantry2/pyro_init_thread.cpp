@@ -16,7 +16,6 @@ extern "C" {
     can_drv_t *can3_drv;
     ins_drv_t *ins_drv;
 
-
     void pyro_init_thread(void *argument) {
         // 1. 初始化 DWT (延时/计时)
         dwt_drv_t::init(480);
@@ -30,13 +29,13 @@ extern "C" {
         // 3. 初始化 IMU (BMI088)
         ins_drv = ins_drv_t::get_instance();
         ins_config_t ins_cfg;
-        ins_cfg.calibrate = IMU_CALIBRATION_EN;
+        ins_cfg.calibrate = false;
 
         ins_cfg.direct = ins_config_t::imu_direct_t::DIRECT_1;
-        ins_cfg.gx_offset = 0.00111946755;  // 陀螺仪零偏
-        ins_cfg.gy_offset = -0.000167405276;
-        ins_cfg.gz_offset = -3.67829443e-06;
-        ins_cfg.g_norm = 9.83213902f;
+        ins_cfg.gx_offset = 0.00427565258;  // 陀螺仪零偏
+        ins_cfg.gy_offset = -0.00199150061;
+        ins_cfg.gz_offset = 0.000609153882;
+        ins_cfg.g_norm = 9.85494423;
         ins_drv->init(ins_cfg);
 
 #ifdef DR16_UART
@@ -52,6 +51,7 @@ extern "C" {
         vt03_drv_t::instance().enable();
         VT03_UART.reset(921600, UART_WORDLENGTH_8B, UART_STOPBITS_1,
                 UART_PARITY_NONE);
+        VT03_UART.enable_rx_dma();
 #endif
 
 #ifdef REFEREE_UART

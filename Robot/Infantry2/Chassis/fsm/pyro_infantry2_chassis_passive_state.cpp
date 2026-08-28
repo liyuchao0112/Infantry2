@@ -23,7 +23,6 @@ void infantry2_chassis_t::state_passive_t::execute(owner *owner) {
 
     // 防跳变
     owner->_ctx.data.target_states = owner->_ctx.data.current_states;
-    owner->_ctx.data.target_yaw_rad = owner->_ctx.data.current_yaw_rad;
 }
 
 void infantry2_chassis_t::state_passive_t::exit(owner *owner) {}

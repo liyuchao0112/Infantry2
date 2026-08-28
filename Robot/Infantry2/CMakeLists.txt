@@ -1,3 +1,9 @@
+# =========================================================================
+# 1. 显式定义当前编译的板子类型（在这里切换 GIMBAL_BOARD 或 CHASSIS_BOARD）
+# =========================================================================
+#set(BOARD "GIMBAL_BOARD")
+set(BOARD "CHASSIS_BOARD")
+
 add_library(Infantry2 OBJECT)
 
 target_compile_definitions(Infantry2 PRIVATE
@@ -31,8 +37,6 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
         Booster/fsm/pyro_infantry2_booster_cali_reverse_state.cpp
         Booster/fsm/pyro_infantry2_booster_cali_forward_state.cpp
 
-        # === Communication ===
-
         pyro_mission_planer.cpp
         pyro_init_thread.cpp
     )
@@ -48,7 +52,6 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
     target_compile_definitions(PYRo PUBLIC
         DR16_UART=PYRO_UART5
         VT03_UART=PYRO_UART1
-        AUTOAIM_UART=PYRO_UART7
     )
 
 elseif (BOARD STREQUAL "CHASSIS_BOARD")
@@ -64,8 +67,6 @@ elseif (BOARD STREQUAL "CHASSIS_BOARD")
         Chassis/fsm/pyro_infantry2_chassis_follow_yaw_state.cpp
         Chassis/fsm/pyro_infantry2_chassis_spin_state.cpp
         Chassis/fsm/pyro_infantry2_chassis_normal_state.cpp
-
-        # === Communication ===
 
         pyro_mission_planer.cpp
         pyro_init_thread.cpp

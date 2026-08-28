@@ -14,6 +14,7 @@ extern "C" {
     void start_mission_planer_task(void const *argument) {
         xTaskCreate(pyro_init_thread, "pyro_init_thread", 512, nullptr,
                     configMAX_PRIORITIES - 1, nullptr);
+        
 #if BOARD == GIMBAL_BOARD
         xTaskCreate(infantry2_gimbal_init, "pyro_gimbal_init", 512, nullptr,
                     configMAX_PRIORITIES - 2, nullptr);
@@ -23,6 +24,7 @@ extern "C" {
         xTaskCreate(infantry2_chassis_init, "pyro_chassis_init", 512, nullptr,
                     configMAX_PRIORITIES - 2, nullptr);
 #endif
+
         vTaskDelete(nullptr);
     }
 }

@@ -17,9 +17,9 @@ status_t infantry2_gimbal_t::_init() {
 
 void infantry2_gimbal_t::_update_feedback() {
     //imu反馈数据
-    ins_drv_t::get_instance()->get_rads_n(&_ctx.data.current_yaw_imu_rad,
+    ins_drv_t::get_instance()->get_rads_b(&_ctx.data.current_yaw_imu_rad,
         &_ctx.data.current_pitch_imu_rad, &_ctx.data.current_roll_imu_rad);
-    ins_drv_t::get_instance()->get_gyro_n(&_ctx.data.current_yaw_imu_radps,
+    ins_drv_t::get_instance()->get_gyro_b(&_ctx.data.current_yaw_imu_radps,
         &_ctx.data.current_pitch_imu_radps, &_ctx.data.current_roll_imu_radps);
 
     //电机反馈数据
@@ -83,12 +83,12 @@ void infantry2_gimbal_t::_imu_control(infantry2_gimbal_ctx_t *ctx) {
     //pitch位置环
     ctx->data.target_pitch_radps =
         ctx->deps.pid.pitch_pos_pid->calculate(
-            ctx->data.target_pitch_rad, ctx->data.current_pitch_imu_rad);
+            ctx->data.target_pitch_rad, ctx->data.current_pitch_motor_rad);
     
     //pitch速度环
     ctx->data.out_pitch_torque =
         ctx->deps.pid.pitch_spd_pid->calculate(
-            ctx->data.target_pitch_radps, ctx->data.current_pitch_imu_radps)
+            ctx->data.target_pitch_radps, ctx->data.current_pitch_motor_radps)
         + ctx->data.gravity_compensate;
     
     ctx->data.out_pitch_torque = std::clamp(ctx->data.out_pitch_torque,

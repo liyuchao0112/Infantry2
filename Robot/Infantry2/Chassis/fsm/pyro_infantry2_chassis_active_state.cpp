@@ -5,7 +5,6 @@ namespace pyro {
 void infantry2_chassis_t::fsm_active_t::on_enter(owner *owner) {
     // 防跳变
     owner->_ctx.data.target_states = owner->_ctx.data.current_states;
-    owner->_ctx.data.target_yaw_rad = owner->_ctx.data.current_yaw_rad;
 
     for(int i = 0; i < 4; i++) {
         owner->_ctx.deps.pid.rud_pos_pid[i]->clear();
@@ -21,6 +20,8 @@ void infantry2_chassis_t::fsm_active_t::on_enter(owner *owner) {
         change_state(&_follow_yaw_state);
     else if(owner->_ctx.cmd->state == infantry2_chassis_cmd_t::state_t::SPIN)
         change_state(&_spin_state);
+    else if (owner->_ctx.cmd->state == infantry2_chassis_cmd_t::state_t::NORMAL)
+        change_state(&_normal_state);
 }
 
 void infantry2_chassis_t::fsm_active_t::on_execute(owner *owner) {
@@ -28,6 +29,8 @@ void infantry2_chassis_t::fsm_active_t::on_execute(owner *owner) {
         change_state(&_follow_yaw_state);
     else if(owner->_ctx.cmd->state == infantry2_chassis_cmd_t::state_t::SPIN)
         change_state(&_spin_state);
+    else if (owner->_ctx.cmd->state == infantry2_chassis_cmd_t::state_t::NORMAL)
+        change_state(&_normal_state);
 }
 
 void infantry2_chassis_t::fsm_active_t::on_exit(owner *owner) {}

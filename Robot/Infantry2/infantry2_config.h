@@ -1,17 +1,18 @@
 #ifndef __INFANTRY2_CONFIG_H__
 #define __INFANTRY2_CONFIG_H__
 
-#if BOARD == GIMBAL_BOARD
-
 #define GIMBAL_EN 1
 #define BOOSTER_EN 1
+#define CHASSIS_EN 1
+
+#if BOARD == GIMBAL_BOARD
 
 namespace infantry2_gimbal {
 
     constexpr float PITCH_MOTOR_OFFSET{0.0f};
-    constexpr float PITCH_MAX_MOTOR_RAD{1.29f}, PITCH_MIN_MOTOR_RAD{0.26f};
+    constexpr float PITCH_MAX_MOTOR_RAD{0.21f}, PITCH_MIN_MOTOR_RAD{-0.07f};
     constexpr float PITCH_IMU_OFFSET{0.0f};
-    constexpr float PITCH_MAX_IMU_RAD{1.29f}, PITCH_MIN_IMU_RAD{0.26f};
+    constexpr float PITCH_MAX_IMU_RAD{0.31f}, PITCH_MIN_IMU_RAD{0.04f};
 
     constexpr float PITCH_MAX_RADPS{30.0f}, PITCH_MIN_RADPS{-30.0f};
     constexpr float PITCH_MAX_MOTOR_TORQUE{7.0f}, PITCH_MIN_MOTOR_TORQUE{-7.0f};
@@ -21,7 +22,7 @@ namespace infantry2_gimbal {
     constexpr float YAW_MOTOR_OFFSET{0.0f};
     constexpr float YAW_MAX_MOTOR_TORQUE{1.0f}, YAW_MIN_MOTOR_TORQUE{-1.0f};
 
-    constexpr float RC_PITCH_COEFFICIENT{0.005f}, RC_YAW_COEFFICIENT{0.002f};
+    constexpr float RC_PITCH_COEFFICIENT{0.005f}, RC_YAW_COEFFICIENT{0.005f};
     
 } // namespace infantry2_gimbal
 
@@ -51,12 +52,10 @@ namespace infantry2_booster {
 
 #elif BOARD == CHASSIS_BOARD
 
-#define CHASSIS_EN 1
-
 namespace infantry2_chassis {
 
-    constexpr float YAW_MOTOR_OFFSET{0.0f};
-    constexpr float RUDDER_MOTOR_OFFSET[4]{0.0f, 0.0f, 0.0f, 0.0f};
+    constexpr float YAW_MOTOR_OFFSET{-1.75027227f};
+    constexpr float RUDDER_MOTOR_OFFSET[4]{1.6007087f, 0.3014272f, 0.260048148f, 3.01427245f};
 
     constexpr float YAW_DEADZONE{0.01f};
     
@@ -64,13 +63,13 @@ namespace infantry2_chassis {
 
     constexpr float WHEEL_RADIUS{0.076f};
 
-    constexpr float SPIN_SPEED{1.0f};
+    constexpr float SPIN_SPEED{30.0f};
 
     // ===== 板间遥控器指令 -> 速度控制参数 (底盘侧) =====
-    constexpr float MAX_VX{10.0f};              // m/s    前后限速
-    constexpr float MAX_VY{10.0f};              // m/s    左右限速
-    constexpr float MAX_WZ{4.0f};              // rad/s  旋转限速
-    constexpr float MAX_ACCEL{6.0f};           // 加速度限幅 (平移 m/s², 旋转 rad/s²)
+    constexpr float MAX_VX{40.0f};              // m/s    前后限速
+    constexpr float MAX_VY{40.0f};              // m/s    左右限速
+    constexpr float MAX_WZ{16.0f};              // rad/s  旋转限速
+    constexpr float MAX_ACCEL{20.0f};           // 加速度限幅 (平移 m/s², 旋转 rad/s²)
     constexpr uint32_t LOST_TIMEOUT_MS{50};    // 掉线停车阈值 (ms)
 
 } //namespace infantry2_chassis

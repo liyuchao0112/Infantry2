@@ -19,27 +19,27 @@ static TickType_t last_cmd_tick = 0;
 static float tgt_vx = 0.0f, tgt_vy = 0.0f, tgt_wz = 0.0f;
 static float cur_vx = 0.0f, cur_vy = 0.0f, cur_wz = 0.0f;
 
-void chassis_config() {
+void chassis_deps_init() {
     // ===== 电机 (按实际硬件核对型号 / CAN总线 / ID) =====
     // 舵电机
     chassis_deps_ptr->motor.rudder[0] =
-        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_1, bsp_can::can2); // FL
+        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_3, bsp_can::can2); // FL
     chassis_deps_ptr->motor.rudder[1] =
-        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_4, bsp_can::can1); // FR
+        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_1, bsp_can::can2); // FR
     chassis_deps_ptr->motor.rudder[2] =
-        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_3, bsp_can::can2); // BL
+        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_4, bsp_can::can1); // BR
     chassis_deps_ptr->motor.rudder[3] =
-        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_2, bsp_can::can1); // BR
+        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_2, bsp_can::can1); // BL
 
     // 轮电机
     chassis_deps_ptr->motor.wheel[0] =
-        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, bsp_can::can2); // FL
+        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_3, bsp_can::can2); // FL
     chassis_deps_ptr->motor.wheel[1] =
-        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_4, bsp_can::can1); // FR
+        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, bsp_can::can2); // FR
     chassis_deps_ptr->motor.wheel[2] =
-        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_3, bsp_can::can2); // BL
+        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_4, bsp_can::can1); // BR
     chassis_deps_ptr->motor.wheel[3] =
-        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, bsp_can::can1); // BR
+        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, bsp_can::can1); // BL
 
     // 注意: yaw 电机需占用独立帧槽位, 与上方 wheel/rudder 错开, 按实际接线填写
     chassis_deps_ptr->motor.yaw =
@@ -48,15 +48,15 @@ void chassis_config() {
     // ===== PID (按实际整定) =====
     for (int i = 0; i < 4; i++) {
         chassis_deps_ptr->pid.rud_pos_pid[i] =
-            new pid_t(41.8f, 0.1f, 0.0f, 10.0f, 50.0f);
+            new pid_t(30.0f, 0.1f, 0.0f, 10.0f, 16.0f);
         chassis_deps_ptr->pid.rud_spd_pid[i] =
-            new pid_t(0.9f, 0.0f, 0.0f, 1.0f, 24.0f);
+            new pid_t(0.05f, 0.0f, 0.0f, 1.0f, 3.0f);
         chassis_deps_ptr->pid.wheel_pid[i] =
-            new pid_t(0.05f, 0.0f, 0.00f, 1.00f, 20.0f);
+            new pid_t(0.05f, 0.0f, 0.0f, 1.0f, 20.0f);;
     }
 
     chassis_deps_ptr->pid.yaw_follow_pid =
-        new pid_t(1.0f, 0.0f, 0.05f, 0.0f, 5.0f);
+        new pid_t(60.0f, 0.01f, 0.05f, 1.0f, 5.0f);
 }
 
 // 底盘板 <- 云台板: 接收遥控器指令, 心跳判定 -> 最大速度缩放 -> 斜坡限幅 -> 写 cmd
@@ -101,10 +101,17 @@ void chassis_rxcmd() {
 extern "C" {
     void infantry2_chassis_thread(void *argument) {
         while (true) {
+
 #if CHASSIS_EN
             chassis_rxcmd();
-            chassis_ptr->set_command(*chassis_cmd_ptr);
+#else
+            chassis_cmd_ptr->mode = infantry2_chassis_cmd_t::mode_t::PASSIVE;
+            chassis_cmd_ptr->vx = 0;
+            chassis_cmd_ptr->vy = 0;
+            chassis_cmd_ptr->wz = 0;
 #endif
+
+            chassis_ptr->set_command(*chassis_cmd_ptr);
             vTaskDelay(1);
         }
     }
@@ -114,7 +121,7 @@ extern "C" {
         chassis_deps_ptr = new infantry2_chassis_deps_t();
         chassis_ptr = infantry2_chassis_t::instance();
 
-        chassis_config();
+        chassis_deps_init();
         chassis_ptr->configure(*chassis_deps_ptr);
         chassis_ptr->start();
 
