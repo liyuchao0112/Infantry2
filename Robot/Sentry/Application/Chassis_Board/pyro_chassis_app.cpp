@@ -33,16 +33,24 @@ static void imu2chassis();
 void imu2chassis()
 {
     imu2chassis_msg_t msg;
-    if (!pyro::board_comm_t::instance().read(msg))
-        return;
+    if (pyro::board_comm_t::instance().read(msg))
+    {
+        if (msg.yaw_deg == 0)
+            return;
 
-    if (msg.yaw_deg == 0)
-        return;
+        rudder_cmd_ptr->imu_yaw_rad   = msg.yaw_deg / 180 * PI;
+        rudder_cmd_ptr->imu_yaw_radps = msg.yaw_radps;
 
-    rudder_cmd_ptr->imu_yaw_rad   = msg.yaw_deg / 180 * PI;
-    rudder_cmd_ptr->imu_yaw_radps = msg.yaw_radps;
-
-    test_imu11 = rudder_cmd_ptr->imu_yaw_rad;
+        test_imu11 = rudder_cmd_ptr->imu_yaw_rad;
+    }
+#if BOARD_COMM_TIMEOUT_IMU_ENABLE
+    else if (pyro::board_comm_t::instance().is_stale<imu2chassis_msg_t>(BOARD_COMM_TIMEOUT_IMU_MS))
+    {
+        // IMU 失联：航向不可信，清零
+        rudder_cmd_ptr->imu_yaw_rad   = 0.0f;
+        rudder_cmd_ptr->imu_yaw_radps = 0.0f;
+    }
+#endif
 }
 
 void deps_init()
@@ -142,25 +150,38 @@ void deps_init()
 void chassis_rxcmd()
 {
     g2c_msg_t msg;
-    if (!pyro::board_comm_t::instance().read(msg))
-        return;
-
-    rudder_cmd_ptr->vx =
-        2.0f * static_cast<float>(msg.vx) / 127.0f;
-    rudder_cmd_ptr->vy =
-        2.0f * static_cast<float>(msg.vy) / 127.0f;
-    rudder_cmd_ptr->delta_yaw =
-        -0.004f * static_cast<float>(msg.delta_yaw) / 127.0f;
-
-    rudder_cmd_ptr->mode =
-        msg.active() ? pyro::cmd_base_t::mode_t::ACTIVE : pyro::cmd_base_t::mode_t::PASSIVE;
-    rudder_cmd_ptr->follow_yaw = msg.follow_en();
-    rudder_cmd_ptr->spinning   = msg.spinning();
-
-    if (rudder_cmd_ptr->spinning == true)
+    if (pyro::board_comm_t::instance().read(msg))
     {
-        rudder_cmd_ptr->follow_yaw = false;
+        rudder_cmd_ptr->vx =
+            2.0f * static_cast<float>(msg.vx) / 127.0f;
+        rudder_cmd_ptr->vy =
+            2.0f * static_cast<float>(msg.vy) / 127.0f;
+        rudder_cmd_ptr->delta_yaw =
+            -0.004f * static_cast<float>(msg.delta_yaw) / 127.0f;
+
+        rudder_cmd_ptr->mode =
+            msg.active() ? pyro::cmd_base_t::mode_t::ACTIVE : pyro::cmd_base_t::mode_t::PASSIVE;
+        rudder_cmd_ptr->follow_yaw = msg.follow_en();
+        rudder_cmd_ptr->spinning   = msg.spinning();
+
+        if (rudder_cmd_ptr->spinning == true)
+        {
+            rudder_cmd_ptr->follow_yaw = false;
+        }
     }
+#if BOARD_COMM_TIMEOUT_G2C_ENABLE
+    else if (pyro::board_comm_t::instance().is_stale<g2c_msg_t>(BOARD_COMM_TIMEOUT_G2C_MS))
+    {
+        // 云台失联：停车并切被动
+        rudder_cmd_ptr->vx         = 0.0f;
+        rudder_cmd_ptr->vy         = 0.0f;
+        rudder_cmd_ptr->wz         = 0.0f;
+        rudder_cmd_ptr->delta_yaw  = 0.0f;
+        rudder_cmd_ptr->mode       = pyro::cmd_base_t::mode_t::PASSIVE;
+        rudder_cmd_ptr->follow_yaw = false;
+        rudder_cmd_ptr->spinning   = false;
+    }
+#endif
 }
 
 void chassis_dr162cmd()

@@ -2,8 +2,11 @@
 #define PYRO_BOARD_COMM_H
 
 #include "pyro_board_msg.h"
+#include "pyro_board_comm_config.h"
 #include "pyro_bsp_can.h"
 #include "pyro_core_def.h"
+#include "FreeRTOS.h"
+#include "task.h"
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -58,6 +61,12 @@ public:
         return true;
     }
 
+    /** @brief 距上次收到数据是否已超时（失联判定）。从未收到过数据也视为超时。 */
+    bool is_stale(TickType_t timeout_ms) const
+    {
+        return (xTaskGetTickCount() - _buffer.get_last_update_time()) >= pdMS_TO_TICKS(timeout_ms);
+    }
+
 private:
     rx_subscription_t() : _buffer(T::ID) {}
 
@@ -92,6 +101,13 @@ public:
     bool read(T& out) const
     {
         return rx_subscription_t<T>::get().read(out);
+    }
+
+    /** @brief 失联判定（转发给对应订阅槽）。T 需为本板订阅过的类型。 */
+    template <typename T>
+    bool is_stale(TickType_t timeout_ms) const
+    {
+        return rx_subscription_t<T>::get().is_stale(timeout_ms);
     }
 
 private:

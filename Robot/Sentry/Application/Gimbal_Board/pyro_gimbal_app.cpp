@@ -149,6 +149,16 @@ static void chassis2gimbal_rx()
         gimbal_cmd_ptr->chassis_data[2] = msg.data[2];
         gimbal_cmd_ptr->chassis_data[3] = msg.data[3];
     }
+#if BOARD_COMM_TIMEOUT_C2G_ENABLE
+    else if (pyro::board_comm_t::instance().is_stale<c2g_msg_t>(BOARD_COMM_TIMEOUT_C2G_MS))
+    {
+        // 底盘失联：数据清零
+        gimbal_cmd_ptr->chassis_data[0] = 0;
+        gimbal_cmd_ptr->chassis_data[1] = 0;
+        gimbal_cmd_ptr->chassis_data[2] = 0;
+        gimbal_cmd_ptr->chassis_data[3] = 0;
+    }
+#endif
 }
 
 void sentry_gimbal_thread(void *argument)
