@@ -48,11 +48,11 @@ void chassis_deps_init() {
     // ===== PID (按实际整定) =====
     for (int i = 0; i < 4; i++) {
         chassis_deps_ptr->pid.rud_pos_pid[i] =
-            new pid_t(30.0f, 0.1f, 0.0f, 10.0f, 16.0f);
+            new pid_t(40.0f, 0.0f, 0.0f, 5.0f, 16.0f, 20.0f, 1, 0.0f, 0, 0);
         chassis_deps_ptr->pid.rud_spd_pid[i] =
-            new pid_t(0.05f, 0.0f, 0.0f, 1.0f, 3.0f);
+            new pid_t(0.06f, 0.0f, 0.0f, 1.0f, 12.0f, 30.0f, 1, 0.0f, 0, 0);
         chassis_deps_ptr->pid.wheel_pid[i] =
-            new pid_t(0.05f, 0.0f, 0.0f, 1.0f, 20.0f);;
+            new pid_t(0.05f, 0.0f, 0.0f, 1.0f, 20.0f);
     }
 
     chassis_deps_ptr->pid.yaw_follow_pid =
