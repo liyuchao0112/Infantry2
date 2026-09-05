@@ -56,7 +56,7 @@ void chassis_deps_init() {
     }
 
     chassis_deps_ptr->pid.yaw_follow_pid =
-        new pid_t(60.0f, 0.01f, 0.05f, 1.0f, 5.0f);
+        new pid_t(20.0f, 0.01f, 0.05f, 1.0f, 15.0f);
 }
 
 // 底盘板 <- 云台板: 接收遥控器指令, 心跳判定 -> 最大速度缩放 -> 斜坡限幅 -> 写 cmd
