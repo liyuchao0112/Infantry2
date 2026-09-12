@@ -54,6 +54,8 @@ extern "C" {
         VT03_UART.enable_rx_dma();
 #endif
 
+        rc_drv_t::init_virtual_rc();
+
 #ifdef REFEREE_UART
         REFEREE_UART.reset(115200, UART_WORDLENGTH_8B, UART_STOPBITS_1,
                             UART_PARITY_NONE);

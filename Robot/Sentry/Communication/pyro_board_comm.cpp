@@ -5,7 +5,7 @@
 namespace pyro
 {
 
-status_t board_comm_t::init()
+status_t board_com_t::init()
 {
     // ==== 订阅清单（按板子区分）====
     // 注意：现有 app 仍占用这些 ID，迁移前先保持注释，避免 register_rx_msg 冲突。
@@ -21,7 +21,7 @@ status_t board_comm_t::init()
     return PYRO_OK;
 }
 
-status_t board_comm_t::start()
+status_t board_com_t::start()
 {
     xTaskCreate(comm_thread, "pyro_board_comm", 256, nullptr,
                 configMAX_PRIORITIES - 1, nullptr);
@@ -29,7 +29,7 @@ status_t board_comm_t::start()
 }
 
 // 轮询循环按板子区分：只 poll 本板订阅的消息
-void board_comm_t::comm_thread(void* arg)
+void board_com_t::comm_thread(void* arg)
 {
     (void)arg;
 
@@ -54,7 +54,7 @@ extern "C" void board_comm_init(void* argument)
 {
     (void)argument;
 
-    pyro::board_comm_t::instance().init();
-    pyro::board_comm_t::instance().start();
+    pyro::board_com_t::instance().init();
+    pyro::board_com_t::instance().start();
     vTaskDelete(nullptr);
 }

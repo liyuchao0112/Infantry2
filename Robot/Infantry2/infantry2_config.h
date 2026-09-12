@@ -1,9 +1,37 @@
 #ifndef __INFANTRY2_CONFIG_H__
 #define __INFANTRY2_CONFIG_H__
 
+#include "pyro_core_def.h"
+
 #define GIMBAL_EN 1
 #define BOOSTER_EN 1
 #define CHASSIS_EN 1
+
+#define REFEREE_EN 1
+
+// ---- 板级总线选择 ----
+// 同一条物理板间线，两板本地编号不同：云台 = can1，底盘 = can3
+// ⚠ 故意用宏而非 constexpr：本文件被模块头包含，
+//   若用 constexpr bsp_can::which_can 就需在此 include pyro_bsp_can.h，
+//   会把 CAN BSP 依赖污染到模块层。宏不产生解析依赖。
+#if BOARD == GIMBAL_BOARD
+#define BOARD_COMM_CAN pyro::bsp_can::can1
+#elif BOARD == CHASSIS_BOARD
+#define BOARD_COMM_CAN pyro::bsp_can::can3
+#endif
+
+// ---- 失联超时保护 ----
+// *_ENABLE = 1 启用；= 0 关闭（失联后保持最后一帧值）
+// *_MS     失联判定阈值（毫秒）
+
+// 0x100 云台→底盘 遥控指令：失联后归零并切 PASSIVE（停车）
+#define BOARD_COMM_TIMEOUT_CHASSIS_CMD_ENABLE 1
+#define BOARD_COMM_TIMEOUT_CHASSIS_CMD_MS     50
+
+// 0x101 底盘→云台 裁判数据：失联后热量不可信
+// 裁判系统本身约 10Hz，阈值需比控制链路宽松
+#define BOARD_COMM_TIMEOUT_REFEREE_ENABLE     1
+#define BOARD_COMM_TIMEOUT_REFEREE_MS         500
 
 #if BOARD == GIMBAL_BOARD
 
@@ -23,6 +51,7 @@ namespace infantry2_gimbal {
     constexpr float YAW_MAX_MOTOR_TORQUE{1.0f}, YAW_MIN_MOTOR_TORQUE{-1.0f};
 
     constexpr float RC_PITCH_COEFFICIENT{0.005f}, RC_YAW_COEFFICIENT{0.005f};
+    constexpr float AUTOAIM_YAW_COEFFICIENT{0.002f}, AUTOAIM_PITCH_COEFFICIENT{0.002f};
     
 } // namespace infantry2_gimbal
 
