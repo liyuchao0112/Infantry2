@@ -1,3 +1,4 @@
+#include "pyro_autoaim_drv.h"
 #include "pyro_infantry2_booster.h"
 #include "pyro_rc_base_drv.h"
 #include "pyro_vt03_rc_drv.h"
@@ -25,6 +26,8 @@ infantry2_booster_deps_t *booster_deps_ptr = nullptr;
 infantry2_booster_t *booster_ptr = nullptr;
 
 static TaskHandle_t booster_task_handle = nullptr;
+
+extern infantry2_autoaim_drv_t::rx_data_t autoaim_cmd;
 
 void booster_deps_init() {
     // 摩擦轮电机初始化
@@ -85,8 +88,8 @@ void booster_dr162cmd(uint32_t notify_val) {
         booster_cmd_ptr->is_fric_on = false;
         booster_cmd_ptr->fire_licence = false;
     }
-    if(vrc.switches.right.current_pos == pyro::sw_pos_t::MID
-            || vrc.switches.right.current_pos == pyro::sw_pos_t::DOWN) {
+    if(vrc.switches.right.current_pos == pyro::sw_pos_t::MID ||
+            vrc.switches.right.current_pos == pyro::sw_pos_t::DOWN) {
         booster_cmd_ptr->mode = infantry2_booster_cmd_t::mode_t::ACTIVE;
         booster_cmd_ptr->fire_licence = true; //没接热量管理，所以临时直接授予发射许可
 
@@ -96,20 +99,30 @@ void booster_dr162cmd(uint32_t notify_val) {
         if(notify_val & EVENT_BIT_FRIC_OFF)
             booster_cmd_ptr->is_fric_on = false;
 
-        if(notify_val & EVENT_BIT_FIRE) {
-            booster_cmd_ptr->is_fric_on = true;
-            booster_ptr->notify_single_shoot();
-            booster_cmd_ptr->continue_shoot = false;
+        if (vrc.switches.left.current_pos == pyro::sw_pos_t::MID) {
+            if (vrc.axes.wheel > 0.5f) {
+                booster_cmd_ptr->is_fric_on = true;
+                booster_ptr->notify_single_shoot();
+                booster_cmd_ptr->continue_shoot = false;
+            }
+            else if(vrc.axes.wheel < -0.5f) {
+                booster_cmd_ptr->is_fric_on = true;
+                booster_cmd_ptr->continue_shoot = true;
+            }
+            else
+                booster_cmd_ptr->continue_shoot = false;
         }
-
-        if (notify_val & EVENT_BIT_FIRE_END) {
-            booster_cmd_ptr->continue_shoot = false;
+        if (vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
+            if (autoaim_cmd.fire)
+                if (autoaim_cmd.is_single_shot) {
+                    booster_ptr->notify_single_shoot();
+                    booster_cmd_ptr->continue_shoot = false;
+                }
+                else
+                    booster_cmd_ptr->continue_shoot = true;
+            else
+                booster_cmd_ptr->continue_shoot = false;
         }
-
-        if (fabs(vrc.axes.wheel) > 0.5f)
-            booster_cmd_ptr->continue_shoot = true;
-        else
-            booster_cmd_ptr->continue_shoot = false;
     }
 }
 

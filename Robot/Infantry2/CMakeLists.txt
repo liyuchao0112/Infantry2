@@ -1,8 +1,8 @@
 # =========================================================================
 # 1. 显式定义当前编译的板子类型（在这里切换 GIMBAL_BOARD 或 CHASSIS_BOARD）
 # =========================================================================
-set(BOARD "GIMBAL_BOARD")
-#set(BOARD "CHASSIS_BOARD")
+#set(BOARD "GIMBAL_BOARD")
+set(BOARD "CHASSIS_BOARD")
 
 add_library(Infantry2 OBJECT)
 
@@ -18,6 +18,11 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
         # === Application ===
         Application/Gimbal_board/pyro_booster_app.cpp
         Application/Gimbal_board/pyro_gimbal_app.cpp
+
+        # === Communication ===
+        Communication/General/pyro_board_com.cpp
+        Communication/Gimbal_board/pyro_autoaim_drv.cpp
+        Communication/Gimbal_board/pyro_autoaim_com.cpp
 
         # === Gimbal 模块 ===
         Gimbal/pyro_infantry2_gimbal.cpp
@@ -44,14 +49,15 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
     # 针对 Gimbal 的特殊头文件包含
     target_include_directories(Infantry2
         PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/Gimbal
         ${CMAKE_CURRENT_SOURCE_DIR}/Booster
+        ${CMAKE_CURRENT_SOURCE_DIR}/Communication/Gimbal_board
     )
 
     target_compile_definitions(PYRo PUBLIC
         DR16_UART=PYRO_UART5
         VT03_UART=PYRO_UART1
+        AUTOAIM_UART=PYRO_UART7
     )
 
 elseif (BOARD STREQUAL "CHASSIS_BOARD")
@@ -59,6 +65,9 @@ elseif (BOARD STREQUAL "CHASSIS_BOARD")
         PRIVATE
         # === Application ===
         Application/Chassis_board/pyro_chassis_app.cpp
+
+        # === Communication ===
+        Communication/General/pyro_board_com.cpp
 
         # === Chassis 模块 ===
         Chassis/pyro_infantry2_chassis.cpp
@@ -75,7 +84,6 @@ elseif (BOARD STREQUAL "CHASSIS_BOARD")
     # 针对 Chassis 的特殊头文件包含
     target_include_directories(Infantry2
         PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/Chassis
     )
 
@@ -89,7 +97,7 @@ endif()
 target_include_directories(Infantry2
         PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/Communication
+        ${CMAKE_CURRENT_SOURCE_DIR}/Communication/General
 )
 
 # ===================== 链接依赖库（保留原工程依赖，可按需增删） =====================

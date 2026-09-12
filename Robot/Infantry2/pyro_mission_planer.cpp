@@ -10,10 +10,15 @@ extern "C" {
     extern void infantry2_gimbal_init(void *argument);
     extern void infantry2_booster_init(void *argument);
     extern void infantry2_chassis_init(void *argument);
+    extern void board_com_init(void *argument);
 
     void start_mission_planer_task(void const *argument) {
         xTaskCreate(pyro_init_thread, "pyro_init_thread", 512, nullptr,
                     configMAX_PRIORITIES - 1, nullptr);
+
+        // 板间通信: 与各模块 init 同级, 晚于 pyro_init_thread 创建
+        xTaskCreate(board_com_init, "pyro_board_comm_init", 256, nullptr,
+                    configMAX_PRIORITIES - 2, nullptr);
         
 #if BOARD == GIMBAL_BOARD
         xTaskCreate(infantry2_gimbal_init, "pyro_gimbal_init", 512, nullptr,

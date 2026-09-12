@@ -23,6 +23,8 @@ void infantry2_chassis_t::state_passive_t::execute(owner *owner) {
 
     // 防跳变
     owner->_ctx.data.target_states = owner->_ctx.data.current_states;
+
+    _send_motor_command(&owner->_ctx);
 }
 
 void infantry2_chassis_t::state_passive_t::exit(owner *owner) {}
