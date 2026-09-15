@@ -2,7 +2,7 @@
 #define __PYRO_AUTOAIM_DRV_H__
 
 #include "pyro_core_def.h"
-#include "pyro_uart_drv.h"
+#include "pyro_serial_itf.h"
 #include "pyro_task.h"
 #include "message_buffer.h"
 #include <cstdint>
@@ -37,7 +37,7 @@ class infantry2_autoaim_drv_t {
         uint8_t     aim_state;
     } __attribute__((packed));
 
-#ifdef AUTOAIM_UART
+#if defined(AUTOAIM_UART) || defined(AUTOAIM_USB_CDC)
     static infantry2_autoaim_drv_t &get_instance();
 #endif
 
@@ -49,7 +49,7 @@ class infantry2_autoaim_drv_t {
     [[nodiscard]] float get_com_interval() const;
 
   private:
-    explicit infantry2_autoaim_drv_t(uart_drv_t *uart_handle);
+    explicit infantry2_autoaim_drv_t(serial_itf_t *serial_handle);
     ~infantry2_autoaim_drv_t();
 
     class autoaim_task_t final : public task_base_t {
@@ -90,7 +90,7 @@ class infantry2_autoaim_drv_t {
         rx_frame_tailer_t tailer;
     } __attribute__((packed));
 
-    uart_drv_t *_uart_drv;
+    serial_itf_t *_serial_itf;   // 字节流链路（UART 或 USB-CDC），由驱动层屏蔽差异
     autoaim_task_t *_task;   // The internal task instance
     tx_packet_t *_tx_buffer; // DMA buffer
     MessageBufferHandle_t _rx_msg_buf;

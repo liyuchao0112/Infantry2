@@ -109,10 +109,10 @@ void booster_dr162cmd(uint32_t notify_val) {
         if (vrc.switches.left.current_pos == pyro::sw_pos_t::MID) {
             if (vrc.axes.wheel > 0.5f) {
                 booster_cmd_ptr->is_fric_on = true;
-                if (dwt_drv_t::get_timeline_ms() - last_single_ms < 1000) {
-                    booster_ptr->notify_single_shoot();
-                    last_single_ms = dwt_drv_t::get_timeline_ms();
-                }
+                // if (dwt_drv_t::get_timeline_ms() - last_single_ms < 1000) {
+                //     booster_ptr->notify_single_shoot();
+                //     last_single_ms = dwt_drv_t::get_timeline_ms();
+                // }
                 booster_cmd_ptr->continue_shoot = false;
             }
             else if(vrc.axes.wheel < -0.5f) {
@@ -123,6 +123,7 @@ void booster_dr162cmd(uint32_t notify_val) {
                 booster_cmd_ptr->continue_shoot = false;
         }
         if (vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
+            // autoaim_cmd.fire = 0; // 暂时禁用打弹，记得删
             if (autoaim_cmd.fire)
                 if (autoaim_cmd.is_single_shot) {
                     booster_ptr->notify_single_shoot();
@@ -165,6 +166,9 @@ extern "C" {
         booster_deps_ptr = new infantry2_booster_deps_t();
         booster_ptr = infantry2_booster_t::instance();
 
+        //给Idle一个回收内存的时间窗口
+        vTaskDelay(pdMS_TO_TICKS(2));
+
         booster_deps_init();
         booster_ptr->configure(*booster_deps_ptr);
         booster_ptr->start();
@@ -193,7 +197,7 @@ extern "C" {
             booster_task_handle, EVENT_BIT_FIRE);
         pyro::sw_broker::subscribe(&vrc.switches.left, pyro::sw_event_t::DOWN_TO_MID,
             booster_task_handle, EVENT_BIT_FIRE_END);
-        
+
         vTaskDelete(nullptr);
     }
 }

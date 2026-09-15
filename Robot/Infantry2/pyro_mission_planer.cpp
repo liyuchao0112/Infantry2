@@ -26,6 +26,11 @@ extern "C" {
                     configMAX_PRIORITIES - 2, nullptr);
         xTaskCreate(infantry2_booster_init, "pyro_booster_init", 512, nullptr,
                     configMAX_PRIORITIES - 2, nullptr);
+        // 自瞄通信：此前此处漏了创建（只在文件顶部 extern 声明过），
+        // 导致 infantry2_autoaim_init() 从未执行 —— get_instance()/start_rx() 均未调用，
+        // 自瞄收发全程不工作（与链路是 UART 还是 USB-CDC 无关）。
+        xTaskCreate(infantry2_autoaim_init, "pyro_autoaim_init", 512, nullptr,
+                    configMAX_PRIORITIES - 2, nullptr);
 #elif BOARD == CHASSIS_BOARD
         xTaskCreate(infantry2_chassis_init, "pyro_chassis_init", 512, nullptr,
                     configMAX_PRIORITIES - 2, nullptr);

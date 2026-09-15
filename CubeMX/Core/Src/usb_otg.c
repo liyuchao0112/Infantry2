@@ -21,7 +21,13 @@
 #include "usb_otg.h"
 
 /* USER CODE BEGIN 0 */
-
+/* [PYRo] 禁止 HAL PCD 初始化：USB 由 TinyUSB(dwc2) 独占 OTG_HS 核心。
+ *        把 HAL_PCD_Init 宏化为空操作后，本文件下方的 MX_USB_OTG_HS_PCD_Init() 只填结构体、
+ *        不再接触任何 USB 寄存器，因此 main.c 无需修改，也不需要排除 HAL PCD 源文件。
+ *        USB 时钟源/电压检测/中断使能随后由本函数末尾的 HAL_PCD_MspInit() 完成（见下方 USER CODE 2）；
+ *        DP/DM 引脚与中断优先级由 PYRo/Peripheral/USB/pyro_usb_cdc_drv.cpp 配置。
+ *        本改动位于 USER CODE 区，CubeMX 重新生成代码不会丢失。 */
+#define HAL_PCD_Init(hpcd) (HAL_OK)
 /* USER CODE END 0 */
 
 PCD_HandleTypeDef hpcd_USB_OTG_HS;
@@ -54,7 +60,15 @@ void MX_USB_OTG_HS_PCD_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USB_OTG_HS_Init 2 */
-
+  /* [PYRo] HAL_PCD_Init 已被宏化为空操作（见本文件 USER CODE BEGIN 0），
+   *        因此在这里显式调用 MspInit，只保留 CubeMX 维护的那部分初始化：
+   *          - USB 时钟源（当前 = RCC_USBCLKSOURCE_HSI48，随时钟树配置自动更新）
+   *          - USB 电压检测器使能
+   *          - OTG_HS 外设时钟使能
+   *          - OTG_HS 中断优先级与使能
+   *        这样 USB 驱动侧就不必（也不应该）硬编码 USB 时钟源。
+   *        本改动位于 USER CODE 区，CubeMX 重新生成代码不会丢失。 */
+  HAL_PCD_MspInit(&hpcd_USB_OTG_HS);
   /* USER CODE END USB_OTG_HS_Init 2 */
 
 }

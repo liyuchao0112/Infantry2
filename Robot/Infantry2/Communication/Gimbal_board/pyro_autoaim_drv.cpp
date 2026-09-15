@@ -1,5 +1,11 @@
 #include "pyro_autoaim_drv.h"
 
+#include "pyro_frame_parser.h"   // 仅用于"帧长 vs 组帧缓冲容量"的编译期校验
+
+#if defined(AUTOAIM_USB_CDC)
+#include "pyro_usb_cdc_drv.h"
+#endif
+
 #include "pyro_bsp_uart.h"
 #include "pyro_core_config.h"
 #include "pyro_core_dma_heap.h"
@@ -11,6 +17,9 @@ namespace pyro {
 
 status_t infantry2_autoaim_drv_t::autoaim_task_t::init() {
     if (_owner) {
+        //给Idle一个回收内存的窗口，不然栈空间不够
+        vTaskDelay(pdMS_TO_TICKS(2));
+
         _owner->init_impl();
         return PYRO_OK;
     }
@@ -22,15 +31,20 @@ void infantry2_autoaim_drv_t::autoaim_task_t::run_loop() {
         _owner->run_loop_impl();
 }
 
-#ifdef AUTOAIM_UART
+#if defined(AUTOAIM_UART)
 infantry2_autoaim_drv_t &infantry2_autoaim_drv_t::get_instance() {
     static infantry2_autoaim_drv_t instance(&AUTOAIM_UART);
     return instance;
 }
+#elif defined(AUTOAIM_USB_CDC)
+infantry2_autoaim_drv_t &infantry2_autoaim_drv_t::get_instance() {
+    static infantry2_autoaim_drv_t instance(&usb_cdc_drv_t::instance());
+    return instance;
+}
 #endif
 
-infantry2_autoaim_drv_t::infantry2_autoaim_drv_t(uart_drv_t *uart_handle)
-    : _uart_drv(uart_handle), _task(nullptr), _tx_buffer(nullptr), _rx_msg_buf(nullptr),
+infantry2_autoaim_drv_t::infantry2_autoaim_drv_t(serial_itf_t *serial_handle)
+    : _serial_itf(serial_handle), _task(nullptr), _tx_buffer(nullptr), _rx_msg_buf(nullptr),
         _is_online(false), _com_interval_ms(0.0f), _last_rx_time_ms(0.0f) {
     // 初始化接收与发送缓存
     memset(&_latest_rx_data, 0, sizeof(_latest_rx_data));
@@ -54,8 +68,8 @@ infantry2_autoaim_drv_t::~infantry2_autoaim_drv_t() {
         _task = nullptr;
     }
 
-    if (_uart_drv)
-        _uart_drv->remove_rx_event_callback(reinterpret_cast<uint32_t>(this));
+    if (_serial_itf)
+        _serial_itf->remove_rx_event_callback(reinterpret_cast<uint32_t>(this));
 
     if (_tx_buffer) {
         vPortFree(_tx_buffer);
@@ -69,7 +83,7 @@ infantry2_autoaim_drv_t::~infantry2_autoaim_drv_t() {
 }
 
 void infantry2_autoaim_drv_t::start_rx() const {
-    if (_task && _uart_drv && _tx_buffer)
+    if (_task && _serial_itf && _tx_buffer)
         _task->start();
 }
 
@@ -81,8 +95,17 @@ void infantry2_autoaim_drv_t::init_impl() {
     if (_rx_msg_buf == nullptr)
         return;
 
-    // 2. Register RX ISR Callback
-    _uart_drv->add_rx_event_callback(
+    // 2. 编译期校验：整帧必须能放进驱动层组帧缓冲，否则 configure() 会静默关闭组帧
+    //    （_len = 0），USB 路径退化为"按字节流回调"，表现为长期收不到有效数据。
+    static_assert(sizeof(rx_packet_t) <= frame_parser_t::MAX_FRAME_LEN,
+                  "autoaim rx frame exceeds frame_parser_t::MAX_FRAME_LEN");
+
+    // 3. 配置驱动层组帧：USB-CDC 为纯字节流，必须由驱动层保证"一次回调 = 一整帧"；
+    //    UART 侧该调用为 no-op（保持 IDLE 语义）。调用层因此对两条链路无差别。
+    _serial_itf->set_frame_config(FRAME_SOF, sizeof(rx_packet_t));
+
+    // 4. Register RX ISR Callback
+    _serial_itf->add_rx_event_callback(
         [this](const uint8_t *p, const uint16_t size,
             BaseType_t &task_woken) -> bool
         { return this->rx_callback(p, size, task_woken); },
@@ -154,7 +177,7 @@ infantry2_autoaim_drv_t::tx_data_t &infantry2_autoaim_drv_t::get_tx_data() {
 }
 
 status_t infantry2_autoaim_drv_t::send_data() const {
-    if (!_tx_buffer || !_uart_drv)
+    if (!_tx_buffer || !_serial_itf)
         return PYRO_ERROR;
 
     // 1. 填充帧头 SOF
@@ -171,8 +194,8 @@ status_t infantry2_autoaim_drv_t::send_data() const {
                            sizeof(tx_packet_t) - 1);
 
     // 5. 触发 DMA 发送
-    return _uart_drv->write(reinterpret_cast<uint8_t*>(_tx_buffer),
-                            sizeof(tx_packet_t));
+    return _serial_itf->write(reinterpret_cast<uint8_t*>(_tx_buffer),
+                              sizeof(tx_packet_t));
 }
 
 const infantry2_autoaim_drv_t::rx_data_t &infantry2_autoaim_drv_t::get_rx_data() const {

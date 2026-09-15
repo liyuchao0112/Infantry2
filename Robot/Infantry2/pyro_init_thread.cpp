@@ -6,6 +6,7 @@
 #include "pyro_ins.h"
 #include "pyro_referee.h"
 #include "pyro_supercap_drv.h"
+#include "pyro_usb_cdc_drv.h"
 
 namespace pyro {
 
@@ -70,10 +71,18 @@ extern "C" {
         supercap_drv_t::get_instance()->start_rx();
 #endif
 
-#ifdef AUTOAIM_UART
+#if defined(AUTOAIM_UART)
         AUTOAIM_UART.reset(921600, UART_WORDLENGTH_8B, UART_STOPBITS_1,
                            UART_PARITY_NONE);
         AUTOAIM_UART.enable_rx_dma();
+#elif defined(AUTOAIM_USB_CDC)
+        // USB CDC 虚拟串口：启动设备栈（内部 tusb_init + tud_task 任务）。
+        // 必须在调度器启动后被调用（本函数即为 FreeRTOS 任务），
+        // 且需先于任何 tud_* 回调使用 instance()。
+        usb_cdc_drv_t::instance().start();
+        // 与 UART 路径保持对称的调用（USB 无链路参数，实现为 no-op）
+        usb_cdc_drv_t::instance().reset(921600, 0, 0, 0);
+        usb_cdc_drv_t::instance().enable_rx_dma();
 #endif
 
         vTaskDelete(nullptr);

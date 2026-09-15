@@ -135,7 +135,7 @@ void gimbal_dr162cmd(uint32_t notify_val) {
             gimbal_cmd_ptr->mode = infantry2_gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->state = infantry2_gimbal_cmd_t::state_t::AUTO;
             gimbal_cmd_ptr->target_pitch_angle = -autoaim_cmd.shoot_pitch;
-            gimbal_cmd_ptr->target_yaw_angle = -autoaim_cmd.shoot_yaw;
+            gimbal_cmd_ptr->target_yaw_angle = autoaim_cmd.shoot_yaw;
         } else {
             gimbal_cmd_ptr->mode = infantry2_gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->state = infantry2_gimbal_cmd_t::state_t::MANUAL;

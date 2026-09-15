@@ -24,10 +24,10 @@ void autoaim_txdata(infantry2_autoaim_drv_t::tx_data_t &tx_data) {
     pyro::read_scope_lock lock(pyro::rc_drv_t::get_lock());
     auto &vrc = pyro::rc_drv_t::read();
 
-    auto gimbal_ctx = infantry2_gimbal_t::instance()->get_ctx();
-    auto booster_ctx = infantry2_booster_t::instance()->get_ctx();
+    const auto &gimbal_ctx = infantry2_gimbal_t::instance()->get_ctx();
+    const auto &booster_ctx = infantry2_booster_t::instance()->get_ctx();
 
-    tx_data.curr_yaw = -gimbal_ctx.data.current_yaw_imu_rad;
+    tx_data.curr_yaw = gimbal_ctx.data.current_yaw_imu_rad;
     tx_data.curr_pitch = -gimbal_ctx.data.current_pitch_motor_rad;
     tx_data.self_v_magnitude = 0;
     tx_data.self_v_angle = 0;
@@ -59,12 +59,15 @@ extern "C" {
         }
     }
 
-    void infantry2_autoaim_init() {
+    void infantry2_autoaim_init(void *argument) {
         // 1. 获取底层驱动实例
         autoaim_drv_ptr = &infantry2_autoaim_drv_t::get_instance();
 
         // 2. 启动驱动层的接收和解析任务
         autoaim_drv_ptr->start_rx();
+
+        //给Idle一个回收内存的窗口，不然栈空间不够
+        vTaskDelay(pdMS_TO_TICKS(2));
 
         // 3. 创建应用层业务线程
         xTaskCreate(infantry2_autoaim_app_thread, "autoaim_app_thread", 256, nullptr,

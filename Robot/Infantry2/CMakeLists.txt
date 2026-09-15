@@ -57,7 +57,8 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
     target_compile_definitions(PYRo PUBLIC
         DR16_UART=PYRO_UART5
         VT03_UART=PYRO_UART1
-        AUTOAIM_UART=PYRO_UART7
+        # AUTOAIM_UART=PYRO_UART7   # 旧路径：UART7（保留以便一键回退）
+        AUTOAIM_USB_CDC=1           # 新路径：TinyUSB CDC 虚拟串口
     )
 
 elseif (BOARD STREQUAL "CHASSIS_BOARD")
