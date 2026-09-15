@@ -40,8 +40,8 @@ void gimbal_deps_init() {
     //没写跟踪微分器，先空着
     
     //pid
-    gimbal_deps_ptr->pid.yaw_pos_pid = new pid_t(15.5f, 0.0f, 0.0f, 1.0f, 10.0f, 50.0f, 1, 20.0f, 1, 4);
-    gimbal_deps_ptr->pid.yaw_spd_pid = new pid_t(0.3f, 0.08f, 0.0003f, 0.0f, 10.0f, 50.0f, 1, 20.0f, 1, 4);
+    gimbal_deps_ptr->pid.yaw_pos_pid = new pid_t(15.5f, 0.01f, 0.0f, 1.0f, 10.0f, 50.0f, 1, 20.0f, 1, 4);
+    gimbal_deps_ptr->pid.yaw_spd_pid = new pid_t(8.0f, 0.08f, 0.0003f, 0.0f, 10.0f, 50.0f, 1, 20.0f, 1, 4);
     gimbal_deps_ptr->pid.pitch_pos_pid = new pid_t(20.2f, 0.0004f, 0.006f, 0.4f, 9.0f, 50.0f, 1, 30.0f, 1, 4);
     gimbal_deps_ptr->pid.pitch_spd_pid = new pid_t(1.18f, 0.068f, 0.006f, 1.8f, 7.0f, 30.0f, 1, 15.0f, 1, 4);
 }
@@ -129,17 +129,19 @@ void gimbal_dr162cmd(uint32_t notify_val) {
         gimbal_cmd_ptr->target_pitch_delta_angle = 0.0f;
         gimbal_cmd_ptr->target_yaw_delta_angle = 0.0f;
     }
-    else if(vrc.switches.right.current_pos == pyro::sw_pos_t::MID) {
-        gimbal_cmd_ptr->mode = infantry2_gimbal_cmd_t::mode_t::ACTIVE;
-        gimbal_cmd_ptr->state = infantry2_gimbal_cmd_t::state_t::MANUAL;
-        gimbal_cmd_ptr->target_pitch_delta_angle = vrc.axes.ry * infantry2_gimbal::RC_PITCH_COEFFICIENT;
-        gimbal_cmd_ptr->target_yaw_delta_angle = vrc.axes.rx * infantry2_gimbal::RC_YAW_COEFFICIENT;
-    }
-    else if(vrc.switches.right.current_pos == pyro::sw_pos_t::DOWN) {
-        gimbal_cmd_ptr->mode = infantry2_gimbal_cmd_t::mode_t::ACTIVE;
-        gimbal_cmd_ptr->state = infantry2_gimbal_cmd_t::state_t::AUTO;
-        gimbal_cmd_ptr->target_pitch_angle = -autoaim_cmd.shoot_pitch;
-        gimbal_cmd_ptr->target_yaw_angle = -autoaim_cmd.shoot_yaw;
+    else if(vrc.switches.right.current_pos == pyro::sw_pos_t::MID
+            || vrc.switches.right.current_pos == pyro::sw_pos_t::DOWN) {
+        if (vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
+            gimbal_cmd_ptr->mode = infantry2_gimbal_cmd_t::mode_t::ACTIVE;
+            gimbal_cmd_ptr->state = infantry2_gimbal_cmd_t::state_t::AUTO;
+            gimbal_cmd_ptr->target_pitch_angle = -autoaim_cmd.shoot_pitch;
+            gimbal_cmd_ptr->target_yaw_angle = -autoaim_cmd.shoot_yaw;
+        } else {
+            gimbal_cmd_ptr->mode = infantry2_gimbal_cmd_t::mode_t::ACTIVE;
+            gimbal_cmd_ptr->state = infantry2_gimbal_cmd_t::state_t::MANUAL;
+            gimbal_cmd_ptr->target_pitch_delta_angle = vrc.axes.ry * infantry2_gimbal::RC_PITCH_COEFFICIENT;
+            gimbal_cmd_ptr->target_yaw_delta_angle = vrc.axes.rx * infantry2_gimbal::RC_YAW_COEFFICIENT;
+        }
     }
 }
 

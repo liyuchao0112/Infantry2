@@ -143,18 +143,18 @@ extern "C" {
 
 #if CHASSIS_EN
             chassis_rxcmd();
-
-            // 裁判数据转发 (1ms 分频到 20ms)
-            if (++referee_tx_cnt >= REFEREE_TX_PERIOD_MS) {
-                referee_tx_cnt = 0;
-                chassis_tx_referee();
-            }
 #else
             chassis_cmd_ptr->mode = infantry2_chassis_cmd_t::mode_t::PASSIVE;
             chassis_cmd_ptr->vx = 0;
             chassis_cmd_ptr->vy = 0;
             chassis_cmd_ptr->wz = 0;
 #endif
+
+            // 裁判数据转发 (1ms 分频到 20ms)
+            if (++referee_tx_cnt >= REFEREE_TX_PERIOD_MS) {
+                referee_tx_cnt = 0;
+                chassis_tx_referee();
+            }
 
             chassis_ptr->set_command(*chassis_cmd_ptr);
             vTaskDelay(1);

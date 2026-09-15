@@ -70,6 +70,12 @@ extern "C" {
         supercap_drv_t::get_instance()->start_rx();
 #endif
 
+#ifdef AUTOAIM_UART
+        AUTOAIM_UART.reset(921600, UART_WORDLENGTH_8B, UART_STOPBITS_1,
+                           UART_PARITY_NONE);
+        AUTOAIM_UART.enable_rx_dma();
+#endif
+
         vTaskDelete(nullptr);
     }
 

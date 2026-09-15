@@ -5,6 +5,7 @@
 #include "pyro_dr16_rc_drv.h"
 #include "pyro_module_base.h"
 #include "pyro_dji_motor_drv.h"
+#include "pyro_dwt_drv.h"
 
 using namespace pyro;
 
@@ -28,6 +29,10 @@ infantry2_booster_t *booster_ptr = nullptr;
 static TaskHandle_t booster_task_handle = nullptr;
 
 extern infantry2_autoaim_drv_t::rx_data_t autoaim_cmd;
+
+uint32_t last_single_ms = 0;
+
+virtual_rc_t d_vrc;
 
 void booster_deps_init() {
     // 摩擦轮电机初始化
@@ -83,6 +88,8 @@ void booster_dr162cmd(uint32_t notify_val) {
     pyro::read_scope_lock lock(pyro::rc_drv_t::get_lock());
     auto &vrc = pyro::rc_drv_t::read();
 
+    d_vrc = vrc;
+
     if(vrc.switches.right.current_pos == pyro::sw_pos_t::UP) {
         booster_cmd_ptr->mode = infantry2_booster_cmd_t::mode_t::PASSIVE;
         booster_cmd_ptr->is_fric_on = false;
@@ -102,7 +109,10 @@ void booster_dr162cmd(uint32_t notify_val) {
         if (vrc.switches.left.current_pos == pyro::sw_pos_t::MID) {
             if (vrc.axes.wheel > 0.5f) {
                 booster_cmd_ptr->is_fric_on = true;
-                booster_ptr->notify_single_shoot();
+                if (dwt_drv_t::get_timeline_ms() - last_single_ms < 1000) {
+                    booster_ptr->notify_single_shoot();
+                    last_single_ms = dwt_drv_t::get_timeline_ms();
+                }
                 booster_cmd_ptr->continue_shoot = false;
             }
             else if(vrc.axes.wheel < -0.5f) {

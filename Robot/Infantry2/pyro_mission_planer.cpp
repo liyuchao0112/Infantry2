@@ -11,6 +11,7 @@ extern "C" {
     extern void infantry2_booster_init(void *argument);
     extern void infantry2_chassis_init(void *argument);
     extern void board_com_init(void *argument);
+    extern void infantry2_autoaim_init(void *argument);
 
     void start_mission_planer_task(void const *argument) {
         xTaskCreate(pyro_init_thread, "pyro_init_thread", 512, nullptr,

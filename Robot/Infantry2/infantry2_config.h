@@ -25,13 +25,13 @@
 // *_MS     失联判定阈值（毫秒）
 
 // 0x100 云台→底盘 遥控指令：失联后归零并切 PASSIVE（停车）
-#define BOARD_COMM_TIMEOUT_CHASSIS_CMD_ENABLE 1
-#define BOARD_COMM_TIMEOUT_CHASSIS_CMD_MS     50
+#define BOARD_COM_TIMEOUT_CHASSIS_CMD_ENABLE 1
+#define BOARD_COM_TIMEOUT_CHASSIS_CMD_MS     50
 
 // 0x101 底盘→云台 裁判数据：失联后热量不可信
 // 裁判系统本身约 10Hz，阈值需比控制链路宽松
-#define BOARD_COMM_TIMEOUT_REFEREE_ENABLE     1
-#define BOARD_COMM_TIMEOUT_REFEREE_MS         500
+#define BOARD_COM_TIMEOUT_REFEREE_ENABLE     1
+#define BOARD_COM_TIMEOUT_REFEREE_MS         500
 
 #if BOARD == GIMBAL_BOARD
 
