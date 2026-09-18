@@ -131,7 +131,8 @@ void gimbal_dr162cmd(uint32_t notify_val) {
     }
     else if(vrc.switches.right.current_pos == pyro::sw_pos_t::MID
             || vrc.switches.right.current_pos == pyro::sw_pos_t::DOWN) {
-        if (vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
+        if (vrc.switches.left.current_pos == pyro::sw_pos_t::MID
+                || vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
             gimbal_cmd_ptr->mode = infantry2_gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->state = infantry2_gimbal_cmd_t::state_t::AUTO;
             gimbal_cmd_ptr->target_pitch_angle = -autoaim_cmd.shoot_pitch;

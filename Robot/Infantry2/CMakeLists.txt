@@ -6,6 +6,10 @@ set(BOARD "GIMBAL_BOARD")
 
 add_library(Infantry2 OBJECT)
 
+set_target_properties(Infantry2 PROPERTIES
+    VERSION 1.1.2    # 通过版本号来辅助判断代码情况
+)
+
 target_compile_definitions(Infantry2 PRIVATE
     BOARD=${BOARD}
     GIMBAL_BOARD=1

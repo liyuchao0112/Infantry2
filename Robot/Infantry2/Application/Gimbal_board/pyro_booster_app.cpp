@@ -106,34 +106,37 @@ void booster_dr162cmd(uint32_t notify_val) {
         if(notify_val & EVENT_BIT_FRIC_OFF)
             booster_cmd_ptr->is_fric_on = false;
 
-        if (vrc.switches.left.current_pos == pyro::sw_pos_t::MID) {
-            if (vrc.axes.wheel > 0.5f) {
+        if (vrc.switches.left.current_pos == pyro::sw_pos_t::MID
+                || vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
+            // if (vrc.axes.wheel > 0.5f) {
+            //     booster_cmd_ptr->is_fric_on = true;
+            //     booster_ptr->notify_single_shoot();
+            //     booster_cmd_ptr->continue_shoot = false;
+            // }
+            // else if(vrc.axes.wheel < -0.5f) {
+            //     booster_cmd_ptr->is_fric_on = true;
+            //     booster_cmd_ptr->continue_shoot = true;
+            // }
+            // else
+            //     booster_cmd_ptr->continue_shoot = false;
+            if (notify_val & EVENT_BIT_FIRE) {
                 booster_cmd_ptr->is_fric_on = true;
-                // if (dwt_drv_t::get_timeline_ms() - last_single_ms < 1000) {
-                //     booster_ptr->notify_single_shoot();
-                //     last_single_ms = dwt_drv_t::get_timeline_ms();
-                // }
+                booster_ptr->notify_single_shoot();
                 booster_cmd_ptr->continue_shoot = false;
             }
-            else if(vrc.axes.wheel < -0.5f) {
-                booster_cmd_ptr->is_fric_on = true;
-                booster_cmd_ptr->continue_shoot = true;
-            }
-            else
-                booster_cmd_ptr->continue_shoot = false;
         }
-        if (vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
-            // autoaim_cmd.fire = 0; // 暂时禁用打弹，记得删
-            if (autoaim_cmd.fire)
-                if (autoaim_cmd.is_single_shot) {
-                    booster_ptr->notify_single_shoot();
-                    booster_cmd_ptr->continue_shoot = false;
-                }
-                else
-                    booster_cmd_ptr->continue_shoot = true;
-            else
-                booster_cmd_ptr->continue_shoot = false;
-        }
+        // if (vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
+        //     // autoaim_cmd.fire = 0; // 暂时禁用打弹，记得删
+        //     if (autoaim_cmd.fire)
+        //         if (autoaim_cmd.is_single_shot) {
+        //             booster_ptr->notify_single_shoot();
+        //             booster_cmd_ptr->continue_shoot = false;
+        //         }
+        //         else
+        //             booster_cmd_ptr->continue_shoot = true;
+        //     else
+        //         booster_cmd_ptr->continue_shoot = false;
+        // }
     }
 }
 
