@@ -50,7 +50,7 @@ void booster_deps_init() {
 
     // 拨弹盘pid初始化
     booster_deps_ptr->pid.trigger_pos_pid = new pid_t(60.0f, 0.5f, 0.0f, 3.0f, 20.0f);
-    booster_deps_ptr->pid.trigger_spd_pid = new pid_t(10.0f, 0.02f, 0.0f, 5.0f, 10.0f);;
+    booster_deps_ptr->pid.trigger_spd_pid = new pid_t(10.5f, 0.02f, 0.0f, 5.0f, 10.0f);;
 }
 
 void booster_vt032cmd(uint32_t notify_val) {
@@ -106,25 +106,25 @@ void booster_dr162cmd(uint32_t notify_val) {
         if(notify_val & EVENT_BIT_FRIC_OFF)
             booster_cmd_ptr->is_fric_on = false;
 
-        if (vrc.switches.left.current_pos == pyro::sw_pos_t::MID
-                || vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
-            // if (vrc.axes.wheel > 0.5f) {
-            //     booster_cmd_ptr->is_fric_on = true;
-            //     booster_ptr->notify_single_shoot();
-            //     booster_cmd_ptr->continue_shoot = false;
-            // }
-            // else if(vrc.axes.wheel < -0.5f) {
-            //     booster_cmd_ptr->is_fric_on = true;
-            //     booster_cmd_ptr->continue_shoot = true;
-            // }
-            // else
-            //     booster_cmd_ptr->continue_shoot = false;
-            if (notify_val & EVENT_BIT_FIRE) {
-                booster_cmd_ptr->is_fric_on = true;
-                booster_ptr->notify_single_shoot();
-                booster_cmd_ptr->continue_shoot = false;
-            }
-        }
+        // if (vrc.switches.left.current_pos == pyro::sw_pos_t::MID
+        //         || vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
+        //     // if (vrc.axes.wheel > 0.5f) {
+        //     //     booster_cmd_ptr->is_fric_on = true;
+        //     //     booster_ptr->notify_single_shoot();
+        //     //     booster_cmd_ptr->continue_shoot = false;
+        //     // }
+        //     // else if(vrc.axes.wheel < -0.5f) {
+        //     //     booster_cmd_ptr->is_fric_on = true;
+        //     //     booster_cmd_ptr->continue_shoot = true;
+        //     // }
+        //     // else
+        //     //     booster_cmd_ptr->continue_shoot = false;
+        //     if (notify_val & EVENT_BIT_FIRE) {
+        //         booster_cmd_ptr->is_fric_on = true;
+        //         booster_ptr->notify_single_shoot();
+        //         booster_cmd_ptr->continue_shoot = false;
+        //     }
+        // }
         // if (vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
         //     // autoaim_cmd.fire = 0; // 暂时禁用打弹，记得删
         //     if (autoaim_cmd.fire)
@@ -137,6 +137,15 @@ void booster_dr162cmd(uint32_t notify_val) {
         //     else
         //         booster_cmd_ptr->continue_shoot = false;
         // }
+
+        // 向下拨连发
+        if (vrc.switches.left.current_pos == pyro::sw_pos_t::DOWN) {
+            booster_cmd_ptr->is_fric_on = true;
+            booster_cmd_ptr->continue_shoot = true;
+        }
+        if (vrc.switches.left.current_pos == pyro::sw_pos_t::MID) {
+            booster_cmd_ptr->continue_shoot = false;
+        }
     }
 }
 
