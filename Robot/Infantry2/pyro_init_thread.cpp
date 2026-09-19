@@ -80,9 +80,9 @@ extern "C" {
         // 必须在调度器启动后被调用（本函数即为 FreeRTOS 任务），
         // 且需先于任何 tud_* 回调使用 instance()。
         usb_cdc_drv_t::instance().start();
-        // 与 UART 路径保持对称的调用（USB 无链路参数，实现为 no-op）
-        usb_cdc_drv_t::instance().reset(921600, 0, 0, 0);
-        usb_cdc_drv_t::instance().enable_rx_dma();
+        // USB 无链路参数（无波特率/字长/停止位/校验位），故没有 reset 这一步；
+        // enable_rx() 等价于 UART 分支的 enable_rx_dma()。
+        usb_cdc_drv_t::instance().enable_rx();
 #endif
 
         vTaskDelete(nullptr);

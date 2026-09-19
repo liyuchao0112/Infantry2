@@ -38,9 +38,9 @@
   只用：write / rx 回调（= 完整一帧）/ 超时在线判定
         │
         ▼
-  pyro::serial_itf_t（唯一契约，纯虚接口）
-        ├── uart_drv_t      : 波特率真实生效、ISR 上下文回调、IDLE 分帧
-        └── usb_cdc_drv_t   : reset() no-op、任务上下文回调、★内部组帧、DTR/挂载
+  pyro::serial_itf_t（唯一契约，纯虚接口：只含消费者经指针调用的方法）
+        ├── uart_drv_t      : 波特率真实生效（reset + enable_rx_dma）、ISR 回调、IDLE 分帧
+        └── usb_cdc_drv_t   : start() + enable_rx()、任务上下文回调、★内部组帧、DTR/挂载
               ↑ 所有 "USB ≠ UART" 的差异全部关在这一层及以下，不向上泄漏
 ```
 
@@ -126,10 +126,6 @@ class serial_itf_t
 
     virtual ~serial_itf_t() = default;
 
-    /** @brief 链路参数配置（USB 实现为 no-op，仍返回 PYRO_OK）。 */
-    virtual status_t reset(uint32_t BaudRate, uint32_t WordLength,
-                           uint32_t StopBits, uint32_t Parity) = 0;
-
     /**
      * @brief 非阻塞写。
      * @note 只允许在任务上下文调用，**禁止在 ISR 中调用**（USB 实现内部会走 TinyUSB FIFO
@@ -140,12 +136,6 @@ class serial_itf_t
 
     /** @brief 阻塞写（带超时）。 */
     virtual status_t write(const uint8_t *p, uint16_t size, uint32_t waittime) = 0;
-
-    /** @brief 启动接收。 */
-    virtual status_t enable_rx_dma() = 0;
-
-    /** @brief 停止接收。 */
-    virtual status_t disable_rx_dma() = 0;
 
     /** @brief 注册接收回调（owner 用于注销，通常传 this）。 */
     virtual void add_rx_event_callback(const rx_event_func &func,
@@ -461,7 +451,7 @@ namespace pyro
  * @brief 基于 TinyUSB(CDC-ACM) 的虚拟串口驱动。
  *
  * 对调用层完全等价于 uart_drv_t —— 本类内部消化所有 USB 与 UART 的差异：
- *  - reset() 为 no-op（USB 无波特率）
+ *  - 链路开启用 start()；接收开关用 enable_rx()/disable_rx()
  *  - 接收在 USB 任务上下文回调，woken 恒为 pdFALSE
  *  - set_frame_config() 生效后，一次回调恰好给到一整帧（内部 frame_parser_t 组帧）
  *
@@ -477,13 +467,13 @@ class usb_cdc_drv_t final : public serial_itf_t
     /** @brief 启动 USB 设备栈（创建内部任务：tusb_init + tud_task 循环）。 */
     status_t start();
 
+    /* ------------------ USB 专有接收控制 ------------------ */
+    status_t enable_rx();                     // 等价于 uart_drv_t::enable_rx_dma()
+    status_t disable_rx();
+
     /* ------------------ serial_itf_t 实现 ------------------ */
-    status_t reset(uint32_t BaudRate, uint32_t WordLength, uint32_t StopBits,
-                   uint32_t Parity) override;
     status_t write(const uint8_t *p, uint16_t size) override;
     status_t write(const uint8_t *p, uint16_t size, uint32_t waittime) override;
-    status_t enable_rx_dma() override;
-    status_t disable_rx_dma() override;
     void     add_rx_event_callback(const rx_event_func &func, uint32_t owner) override;
     status_t remove_rx_event_callback(uint32_t owner) override;
     void     set_frame_config(uint8_t sof, uint16_t frame_len) override;
@@ -643,12 +633,6 @@ status_t usb_cdc_drv_t::start()
 
 /* ======================= serial_itf_t 实现 ============================= */
 
-status_t usb_cdc_drv_t::reset(uint32_t /*BaudRate*/, uint32_t /*WordLength*/,
-                              uint32_t /*StopBits*/, uint32_t /*Parity*/)
-{
-    return PYRO_OK;   // USB 无链路参数，与 UART 调用点保持签名一致
-}
-
 status_t usb_cdc_drv_t::write(const uint8_t *p, uint16_t size)
 {
     if (!p || size == 0 || !tud_mounted())
@@ -670,7 +654,9 @@ status_t usb_cdc_drv_t::write(const uint8_t *p, uint16_t size, uint32_t)
     return write(p, size);
 }
 
-status_t usb_cdc_drv_t::enable_rx_dma()
+/* ===================== USB 专有接收控制 ========================== */
+
+status_t usb_cdc_drv_t::enable_rx()
 {
 #if USB_CDC_LOOPBACK == 2
     // 自测档位 2：用自瞄的帧参数开启组帧，从而验证 frame_parser_t 的切帧行为
@@ -680,7 +666,7 @@ status_t usb_cdc_drv_t::enable_rx_dma()
     return PYRO_OK;
 }
 
-status_t usb_cdc_drv_t::disable_rx_dma()
+status_t usb_cdc_drv_t::disable_rx()
 {
     _rx_enabled = false;
     return PYRO_OK;
@@ -1086,11 +1072,13 @@ endif()
 
 | 改动点 | 文件 | 内容 |
 |---|---|---|
-| 接口落地 | `PYRo/Peripheral/UART/pyro_uart_drv.h` | `class uart_drv_t : public serial_itf_t`；`reset / write×2 / enable_rx_dma / disable_rx_dma / add_rx_event_callback / remove_rx_event_callback` 加 `override`；`set_frame_config` 实现为 no-op。**`.cpp` 不需修改**；全仓无任何类继承 `uart_drv_t`，兼容性已核查 |
+| 接口落地 | `PYRo/Peripheral/UART/pyro_uart_drv.h` | `class uart_drv_t : public serial_itf_t`；`write×2 / add_rx_event_callback / remove_rx_event_callback` 加 `override`；`set_frame_config` 实现为 no-op。**`.cpp` 不需修改**；全仓无任何类继承 `uart_drv_t`，兼容性已核查 |
+| 接口瘦身 | `PYRo/Peripheral/Serial/pyro_serial_itf.h` | 删除 `reset / enable_rx_dma / disable_rx_dma` 三个纯虚——三者均不被 `serial_itf_t*` 调用（判据：**谁调用**，而非"谁 no-op"）。接口只保留消费者真正经指针调用的四个：`write×2 / add_rx_event_callback / remove_rx_event_callback / set_frame_config`；`uart_drv_t::reset / enable_rx_dma / disable_rx_dma` 去 `override` 变非虚，实现与语义零变化 |
+| USB 专有 API | `PYRo/Peripheral/USB/pyro_usb_cdc_drv.h/.cpp` | 删除 `reset()` 空实现；`enable_rx_dma()/disable_rx_dma()` 改名 `enable_rx()/disable_rx()`（USB 无 DMA，去实现细节语义词） |
 | 依赖抽象 | `Robot/Infantry2/Communication/Gimbal_board/pyro_autoaim_drv.h/.cpp` | `uart_drv_t *_uart_drv` → `serial_itf_t *_serial_itf`；构造函数参数同步；`get_instance()` 增加 `#elif defined(AUTOAIM_USB_CDC)` 分支返回 `&usb_cdc_drv_t::instance()` |
 | 帧配置 | `pyro_autoaim_drv.cpp::init_impl()` | 新增一行 `_serial_itf->set_frame_config(FRAME_SOF, sizeof(rx_packet_t));`（驱动层组帧，`rx_callback` 逻辑不变） |
 | 切换宏 | `Robot/Infantry2/CMakeLists.txt` | `AUTOAIM_UART=PYRO_UART7` 注释保留 → `AUTOAIM_USB_CDC=1` |
-| 初始化 | `Robot/Infantry2/pyro_init_thread.cpp` | USB 分支执行 `usb_cdc_drv_t::instance().start()` + `reset(...)` + `enable_rx_dma()` |
+| 初始化 | `Robot/Infantry2/pyro_init_thread.cpp` | USB 分支执行 `usb_cdc_drv_t::instance().start()` + `enable_rx()`（USB 无链路参数，故无 `reset` 这一步） |
 | 清理测试开关 | `CMakeLists.txt` + `pyro_usb_cdc_drv.cpp` | 删除 `USB_CDC_SELF_TEST` 开关段与回环代码路径（`USB_CDC_LOOPBACK` 相关 `#if`），避免误留劫持业务数据（见 A2 说明） |
 
 **承诺**：`pyro_autoaim_com.cpp` 永不修改；UART/USB 通过宏一键回退，回退成本 = 改一行 + 重编译。
