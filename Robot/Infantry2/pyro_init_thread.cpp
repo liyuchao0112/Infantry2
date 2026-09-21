@@ -76,10 +76,12 @@ extern "C" {
                            UART_PARITY_NONE);
         AUTOAIM_UART.enable_rx_dma();
 #elif defined(AUTOAIM_USB_CDC)
-        // USB CDC 虚拟串口：启动设备栈（内部 tusb_init + tud_task 任务）。
+        // USB CDC 虚拟串口：启动设备栈（内部 tusb_init + tud_task 任务）并注入设备身份。
         // 必须在调度器启动后被调用（本函数即为 FreeRTOS 任务），
         // 且需先于任何 tud_* 回调使用 instance()。
-        usb_cdc_drv_t::instance().start();
+        // 序列号由应用层自行书写（唯一性由调用者负责）：产品名对所有机型固定，
+        // 区分能力由序列号承载（详见 plan.md §9.2.4）。建议 "<机型>-<板别>"，≤31 字符。
+        usb_cdc_drv_t::instance().start("PYRO-INF2-GIM");
         // USB 无链路参数（无波特率/字长/停止位/校验位），故没有 reset 这一步；
         // enable_rx() 等价于 UART 分支的 enable_rx_dma()。
         usb_cdc_drv_t::instance().enable_rx();

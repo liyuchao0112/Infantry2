@@ -7,6 +7,8 @@
 > **约束**：本方案**不修改 `bugs.md` 中记录的任何既有问题**（含 §1 `referee_msg` 链接冲突、§2 底盘板编译、§5 自瞄状态未接线、§8 `vPortDmaFree` 等），这些属于独立议题，本方案既不依赖也不触发对它们的修改。
 
 > **改进记录**：A/B 类评审改进已就地合入本文档（代码/配置的修正已体现在对应小节），设计约束与决策依据汇总见 **§8**。
+>
+> **通用化**：USB CDC 驱动的通用化（去除机型指纹 + 对齐 BSP 约定）方案见 **§9**（已定稿，待实施，尚未改动代码）。
 
 ---
 
@@ -1362,3 +1364,387 @@ Windows 会把它们识别为**同一个设备**（VID/PID/Serial 相同），�
 | 4 | 引脚/稳定性确认 | 验收表 6-7 项 |
 | 5 | 零回归确认（UART 链路全部照旧） | 验收表 8 项 |
 | 6 | （阶段 3）接口接入 + 组帧 + 切宏 | 上位机联调 |
+
+---
+
+## 9. 通用化改造方案（A + B + C）— 已定稿，待实施
+
+> **背景**：§1–§8 已把 USB CDC 接通自瞄链路，但驱动链路中残留机型字样与自瞄自测脚手架，且板级硬件细节内嵌在驱动内。
+>
+> **目标**：使 USB CDC 成为 **PYRo 框架级通用虚拟串口驱动** —— 不出现任何机型/业务字样，并与 `bsp_uart` / `bsp_can` 的分层约定对齐。
+>
+> **范围**：A（描述符身份参数化）+ B（清除自瞄残留与自测脚手架）。~~C（抽出 `bsp_usb`）~~ → **已取消**，理由见 §9.5。
+>
+> **不在范围**：C（抽出 `bsp_usb`）、D（多实例/多路 CDC）、E（跨 MCU 参数化），理由见 §9.5。
+>
+> **状态**：方案定稿；**落笔时尚未修改任何代码**。
+
+### 9.1 机型指纹盘点（含证据）
+
+| 类别 | 位置 | 内容 | 判定 |
+|---|---|---|---|
+| 真指纹 | `PYRo/Peripheral/USB/pyro_usb_descriptors.c:76` | 产品名 `"Infantry2 Virtual COM"` | 必须参数化 |
+| 真指纹 | 同上 `:77` | 序列号 `"PYRO-INF2-0001"` 固定 → 同 PC 多台机器人被识别为同一设备（§8.13.4） | 改为 UID 派生 |
+| 真指纹 | `PYRo/Peripheral/USB/pyro_usb_cdc_drv.cpp:123-126` | `enable_rx()` 自测档位里硬编码自瞄帧 `_parser.configure(0xA5, 29)` | 删除 |
+| 真指纹 | `pyro_usb_cdc_drv.cpp:8-10,209-228,255-263,285-313` | `USB_CDC_LOOPBACK` 三档回环 + mount/DTR 回环打印 | 删除（§4 已承诺） |
+| 真指纹 | 顶层 `CMakeLists.txt:97-100` | `USB_CDC_SELF_TEST`、死宏 `USB_CDC_STANDALONE_TEST`（代码零引用） | 删除 |
+| 注释级 | `pyro_frame_parser.h:22,65` | "自瞄帧 29B"、`_sof{0xA5}` 默认值 | 去机型化 |
+| 注释级 | `pyro_serial_itf.h:20-24,33` | 点名 `infantry2_autoaim_drv_t` 为唯一消费者 | 去机型化 |
+| 结构（非指纹） | `pyro_usb_cdc_drv.cpp:25-39` | GPIOA PA11/PA12 + `GPIO_AF10_OTG1_HS` + `OTG_HS_IRQn` + NVIC 优先级内嵌驱动 | **保持现状**（目标板固定达妙 MC02、单 USB 口，不做 BSP；见 §9.4/§9.5） |
+| 结构（非指纹） | `pyro_usb_cdc_drv.h:28,59` | `instance()` 单例（UART 侧单例归 `bsp_uart`） | **保持现状**（单 USB 口，无多实例需求） |
+| 非驱动，正常分工 | `Robot/Infantry2/CMakeLists.txt:65`、`pyro_init_thread.cpp:78-86`、`pyro_autoaim_drv.cpp:39-43,105` | `AUTOAIM_USB_CDC` 宏、`start()+enable_rx()`、`set_frame_config(0xA5,29)` | 保持（消费者接线） |
+
+### 9.2 A｜描述符身份参数化（A-1 方案）
+
+动机：描述符是唯一硬编码机型名的位置；且固定序列号会导致多机冲突。
+
+**A-1 新增 `PYRo/Peripheral/USB/pyro_usb_desc_config.h`**（**定稿已取代本节内容**：不再引入 `PYRO_USB_ROBOT_NAME`/`PYRO_USB_BOARD_ROLE` 与字符串化宏，产品名固定为 `"PYRo Robot Virtual COM"`，序列号由应用层直接书写 —— 见 §9.2.4）：
+
+```cpp
+#define PYRO_USB_STR_(x) #x
+#define PYRO_USB_STR(x)  PYRO_USB_STR_(x)
+
+#ifndef PYRO_USB_ROBOT_NAME          /* 由 CMake 注入：-DPYRO_USB_ROBOT_NAME=INFANTRY2 */
+#define PYRO_USB_ROBOT_NAME PYRo     /* 非 CMake 裸编译时的兜底 */
+#endif
+
+#define PYRO_USB_MANUFACTURER_STR "PYRo"
+#define PYRO_USB_PRODUCT_STR      PYRO_USB_STR(PYRO_USB_ROBOT_NAME) " Virtual COM"
+#define PYRO_USB_CDC_ITF_STR      "PYRo CDC"
+
+#ifndef PYRO_USB_VID
+#define PYRO_USB_VID 0xCAFE
+#endif
+#ifndef PYRO_USB_PID
+#define PYRO_USB_PID 0x4010
+#endif
+#ifndef PYRO_USB_BCD
+#define PYRO_USB_BCD 0x0100
+#endif
+```
+
+**A-2 注入机型名（未采用）**（`ROBOT_NAME` 定义于 `CMake/config/pyro_robot_id_config.cmake:49-78`，由 `ROBOT_ID` 映射。本方案最终**不做 CMake 注入**——决策为"应用层直接书写序列号"，见 §9.2.4/§9.2.2；以下内容仅作为"若将来需由构建系统注入机型名"的参考）：
+
+- **推荐位置**：`CMake/config/pyro_robot_id_config.cmake` 第 107 行之后（紧邻 ID 常量，机器人身份单一来源；`add_compile_definitions` 为目录级，自动覆盖其后 `add_subdirectory(PYRo)` / `add_subdirectory(robot/...)` 的全部目标）。
+- **备选位置**：顶层 `CMakeLists.txt:6` 的 `include(...pyro_robot_id_config.cmake)` 之后（同目录作用域，变量可见；但身份定义被拆到两处）。
+
+```cmake
+# USB CDC 描述符机型名（无空格标识符；ROBOT_NAME 由本文件/上游按 ROBOT_ID 计算）
+if(DEFINED ROBOT_NAME)
+    add_compile_definitions(PYRO_USB_ROBOT_NAME=${ROBOT_NAME})
+else()
+    add_compile_definitions(PYRO_USB_ROBOT_NAME=PYRo)
+endif()
+```
+
+> 说明：`ROBOT_NAME` 是普通（非 CACHE）变量，未定义 ROBOT_ID 时其值为 `"UNKNOWN"`，此处会得到 `-DPYRO_USB_ROBOT_NAME=UNKNOWN`（可接受，且与构建横幅的显示一致）。
+
+**A-3 `pyro_usb_descriptors.c` 改造**
+
+> **定稿说明（重要，2026-09 实施）**：采用 §9.2.4 定稿形态后，本小节的第 **1、4、5** 步（`stm32h7xx_hal.h`/UID 读取、`fill_serial_utf16()`、回调 switch 化）**均不再需要**。实际实现为：① 厂商/产品/VID/PID 改为编译期常量（`pyro_usb_desc_config.h`）；② `string_desc_arr[]` 第 3 项（Serial）留占位值并**可写**，新增 `void pyro_usb_desc_set_serial(const char *s)` 供驱动调用；③ 序列号由应用层在 `start(serial)` 中**直接书写**（如 `"INFANTRY2-GIMBAL"`），长度/字符集**在 `start()` 里运行期校验**（不引入 `PYRO_USB_SERIAL_STR` 宏，也无 `static_assert`）。下列内容保留为"若将来需要含 UID 序列号"的实现参考。
+
+1. include：增加 `pyro_usb_desc_config.h` 与 `stm32h7xx_hal.h`（取 UID：`HAL_GetUIDw0/1/2()`，见 `stm32h7xx_hal.h:1090-1092`；与 `pyro_usb_cdc_drv.cpp` 引 HAL 的做法一致）；
+2. `USB_VID/PID/BCD` 改为引用宏；
+3. 字符串表第 3 项（Serial）留空，改由回调运行时生成；
+4. 新增序列号生成 `fill_serial_utf16()`：`"<ROBOT_NAME>-" + UID 低 64bit`（8 字节 → 16 hex；最长 `SUB_ENGINEER-` 13+16=29 ≤ 31 上限）；**直接把 ASCII 写成 UTF-16LE 存进描述符缓冲**（USB 字符串描述符即为 UTF-16LE，故无需中间 char 缓冲/转换）；**不引入 printf**（全仓无 `sprintf/snprintf` 使用，手写 hex 与 TinyUSB 上游 `board_usb_get_serial` 同风格）：
+
+```c
+static uint8_t fill_serial_utf16(uint16_t *dst, uint8_t cap)
+{
+    static const char hex[]    = "0123456789ABCDEF";
+    static const char prefix[] = PYRO_USB_STR(PYRO_USB_ROBOT_NAME) "-";
+    const uint32_t uid[2] = { HAL_GetUIDw0(), HAL_GetUIDw1() };   /* UID 低 64bit */
+
+    uint8_t n = 0;
+    for (const char *p = prefix; *p && n < cap; ++p) dst[n++] = (uint16_t)(uint8_t)*p;
+    for (int w = 0; w < 2; ++w) {                     /* UID 低 64bit */
+        const uint32_t v = uid[w];
+        for (int s = 28; s >= 0 && n < cap; s -= 4) dst[n++] = (uint16_t)hex[(v >> s) & 0x0F];
+    }
+    return n;
+}
+```
+
+5. `tud_descriptor_string_cb()` 改为 switch 形式（与 TinyUSB 官方示例同构），仅特化 `STRID_SERIAL`：
+
+```c
+switch (index) {
+case STRID_LANGID:  memcpy(&_desc_str[1], string_desc_arr[STRID_LANGID], 2); chr_count = 1; break;
+case STRID_SERIAL:  chr_count = fill_serial_utf16(&_desc_str[1],
+                              (uint8_t)(sizeof(_desc_str)/sizeof(_desc_str[0]) - 2)); break;
+default:            /* 越界返回 NULL；其余按 string_desc_arr[index] 转 UTF-16LE，cap 31 */ break;
+}
+_desc_str[0] = (uint16_t)((TUSB_DESC_STRING << 8) | (2 * chr_count + 2));
+```
+
+> **取数来源**：`HAL_GetUIDw0()/HAL_GetUIDw1()`（`stm32h7xx_hal.h:1090-1092`，内部读 `UID_BASE`；H723 的 `UID_BASE = 0x1FF1E800`，见 `stm32h723xx.h:2082`，96 位 UID 出厂烧录、芯片级唯一，任意字组合均可作序列号）。等价替代写法：直接读 `(const volatile uint32_t *)UID_BASE` 指针（TinyUSB 上游 `hw/bsp/stm32*/family.c:board_get_unique_id()` 即此风格）。
+>
+> **身份稳定性权衡**：序列号含 `ROBOT_NAME` → 同一块板改刷为别的机型会得到**新的 USB 身份**（新设备实例、新 COM 号）；若希望"身份只随硬件走"，可改为纯 UID（如 `PYRO-1A2B3C4D5E6F7A8B`），机型只体现在产品名。当前方案取"机型名 + UID"，便于在一台 PC 上同时区分机型与板子。
+>
+> **缓存副作用**：Windows 按 `VID/PID/Serial` 建立设备实例并缓存字符串；改序列号后旧实例可能残留（设备管理器"显示隐藏的设备"可清理），COM 号也可能重新分配。
+
+> 描述符**结构零变化**：`ITF_NUM_*`、端点 `0x81/0x02/0x82`、`TUD_CDC_DESCRIPTOR(..., 4, ...)` 的字符串索引 4 均不变；`_desc_str[32+1]` 保持不变。
+
+> **为什么需要唯一序列号（"没关系 vs 有关系"判据）**：
+>
+> - **确实无关的场景**：同一时刻只接一块板（拔一块插一块）、上位机写死 COM 号、且始终插同一个 USB 口 —— 此时固定序列号/机型名序列号反而让 COM 号保持恒定，工程上完全可用（现实中大量 CH340/CP2102 等 USB-TTL 芯片就没有唯一序列号）。
+> - **会出问题的场景**：① **同一 PC 并发插两块"设备实例相同"的板**（备板、同型多车、同 ROBOT_ID 下的多块板）→ Windows 视为同一设备实例 → COM 号互相覆盖、只能打开其中一个；第二块插入会让第一块"重新枚举"，正在跑的链路掉线（易被误判为"USB 不稳定/抗干扰差"）。② **换 USB 口** → 无唯一序列号时 Windows 按**端口位置**建实例 → COM 号漂移（这正是 USB-TTL 模块"换个口 COM 号就变"的根因）；有唯一序列号则"插哪个口都是同一实例/同一 COM 号"。③ 多机型都接 USB 时，冲突面从"跨机型"扩大到"同机型多板"。
+> - **收益/代价**：唯一序列号的收益是"①可并发 ②换口不换号"；代价是"改刷 `ROBOT_ID` 会换身份"（仅"机型+UID"方案有此项，纯 UID 无此代价）。
+> - **若上位机必须写死 COM 号**：可用唯一序列号 + 在设备管理器手动固定每块板的 COM 号（端口属性 → 高级），比"依赖插口位置"更稳定；否则建议上位机按 VID/PID + 产品名（机型）或序列号前缀筛选端口。
+
+### 9.2.1 备选方案：车型 + 板别（不使用芯片 UID）
+
+> **定稿说明**：本节提出的"车型+板别"形式**最终被采纳**（见 §9.2.4 定稿决定）；本节其余内容（板别 token 现状、注入方式、能力边界）作为决策依据保留。
+
+动机：若"同机型 + 同板别的多块板并发"不会发生，则序列号可用**纯编译期常量**表达，实现比 A-3 更简单（无需 UID、无需运行时生成与 `cap` 逻辑）。
+
+| 项 | 内容 |
+|---|---|
+| 身份形态 | `iProduct = "INFANTRY2 GIMBAL Virtual COM"`；`iSerialNumber = "INFANTRY2-GIMBAL"` |
+| 数据来源 | **定稿改为应用层直接书写字面量**（不做 CMake 注入，见 §9.2.4）；下表板别 token 仅作参考 |
+| 代码改动 | `pyro_usb_descriptors.c` 第 3 项保留占位值 + 新增 `pyro_usb_desc_set_serial()`；启动时由 `start(serial)` 注入 → **A-3 的 `fill_serial_utf16()` 与 UID 读取全部不需要**（`tud_descriptor_string_cb` 保持原索引式写法即可） |
+| 长度 | 最长 `SUB_ENGINEER-CHASSIS` = 20 ≤ 31 上限，安全 |
+
+```c
+/* pyro_usb_desc_config.h 追加 */
+#ifndef PYRO_USB_BOARD_ROLE           /* 由各机型 CMake 注入：GIMBAL / ARM / CHASSIS（无空格标识符） */
+#define PYRO_USB_BOARD_ROLE MAIN
+#endif
+#define PYRO_USB_SERIAL_STR  PYRO_USB_STR(PYRO_USB_ROBOT_NAME) "-" PYRO_USB_STR(PYRO_USB_BOARD_ROLE)
+```
+
+板别 token 的现状（证据）：
+
+| 机型 | `BOARD` 取值 | 是否已有板别宏 | 位置 |
+|---|---|---|---|
+| Infantry2 | `GIMBAL_BOARD` / `CHASSIS_BOARD` | `GIMBAL_BOARD=1`、`CHASSIS_BOARD=2` | `Robot/Infantry2/CMakeLists.txt:4,13-17` |
+| Sentry | `GIMBAL_BOARD` / `CHASSIS_BOARD` | 同上 | `Robot/Sentry/CMakeLists.txt:4,13-17` |
+| Engineer | `ARM_BOARD` / `CHASSIS_BOARD` | 仅 `BOARD=${BOARD}`（**无** `GIMBAL_BOARD` 宏） | `Robot/Engineer/CMakeLists.txt:4,14-16` |
+
+→ 命名不统一（`GIMBAL` / `ARM` / `CHASSIS`），故两种做法：
+1. **推荐**：各机型 CMake 的 `target_compile_definitions` 显式加 `PYRO_USB_BOARD_ROLE=GIMBAL|ARM|CHASSIS`（每机型 1 行，语义统一）；
+2. 零改动退路：`#define PYRO_USB_BOARD_ROLE BOARD`，代价是显示为 `INFANTRY2-GIMBAL_BOARD`（略啰嗦但可用；注意 BOARD 未定义时会串化成 `"BOARD"`）。
+
+**能力边界（务必接受）**：该方案把序列号降级为"类型标识"，与 `iProduct` 语义重叠；**无法区分同机型 + 同板别的两块板**（备板、同型第二台车、修板对照）——这两块板仍会抢同一个 COM 号 / 设备实例。同理，`ROBOT_ID=4` 下的云台板与底盘板虽可用板别区分，但"另一台车的云台板"无法区分。
+
+**两全改良（推荐折中）**：前缀保留可读性、尾部保留唯一性 ——
+`iProduct = "INFANTRY2 GIMBAL Virtual COM"`，`iSerialNumber = "INFANTRY2-GIMBAL-" + UID 低 32bit（8 hex）`
+唯一性由尾部保证，运维仍可从前缀看出车型与板别；代价仅为一次 `HAL_GetUIDw0()`。
+
+**全人工编号（另一种无 UID 的唯一化）**：`INFANTRY2-GIMBAL-01`，由 `-DPYRO_USB_BOARD_SN=01` 或 Flash 配置注入。优点：可读、可与队内资产台账对应；代价：需人工维护，漏改/重复即冲突。
+
+### 9.2.2 运行时注入方案：驱动不读取任何身份来源
+
+> **定稿说明**：运行时注入的**机制**被采纳（应用层通过 `start(serial)` 提供身份，见 §9.2.4），但**范围收敛**为"只注入序列号"；UID 读取与可覆盖产品名**均未采用**——驱动仍不读 UID（写入方是应用层），故本节"驱动零身份依赖"的收益依然成立。
+
+动机：把"身份从哪来"的决策权移到应用层（机型/BSP），驱动只负责"接收并使用"。这样驱动既不依赖 HAL/UID，也不依赖机型宏——与 §9.4 的 BSP 分层最一致，也是"通用化"最彻底的形态。
+
+**分层**
+
+```text
+机型层 Robot/<robot>/pyro_init_thread.cpp     ← 决定身份内容（硬编码 / 计算 / 读 Flash / 上位机下发均可）
+      │ usb_device_info_t
+      ├── PYRo/Peripheral/USB/pyro_bsp_usb.cpp ← 板级：可选提供 UID→序列号 等生成工具
+      ▼
+usb_cdc_drv_t::set_device_info()               ← 驱动只存指针 + 校验长度（不读 UID、不含机型）
+      ▼
+pyro_usb_descriptors.c                         ← 描述符回调按需转 UTF-16LE 返回
+```
+
+**接口（驱动侧，`pyro_usb_cdc_drv.h`）**
+
+```cpp
+struct usb_device_info_t
+{
+    const char *manufacturer;   // ASCII，静态存储；nullptr → 驱动默认 "PYRo"
+    const char *product;        // ASCII，静态存储；nullptr → 驱动默认 "PYRo Virtual COM"
+    const char *serial;         // ASCII，静态存储；nullptr → 不带序列号（iSerialNumber = 0）
+};
+
+// 必须在 start() 之前调用；字符串须为静态存储且生命周期覆盖整个运行期
+status_t set_device_info(const usb_device_info_t &info);
+```
+
+- **只注入字符串**；`VID/PID/BCD` 保持编译期宏 → `desc_device` 仍为 `const`（留在 Flash，零 RAM 增量）。
+- `pyro_usb_descriptors.c` 中 `string_desc_arr[]`（指针数组本身**可写**）→ 注入即改写第 1/2/3 项指针；返回前统一做 ASCII→UTF-16LE 与长度（≤31 字符）校验。
+
+**时序与生命周期约束（必须遵守）**
+
+1. **注入先于 `tusb_init()`**：调用链为 `start()` → `usb_task_t::init()` → `run_loop()` 内 `tusb_init()`；枚举只发生在 `tusb_init()` 之后，故在 `start()` 之前注入即无竞态。
+2. `tud_descriptor_*_cb` 在 USB 任务上下文（`tud_task()` 内）被调用，且会被**多次**调用（重复 GET_DESCRIPTOR、重枚举）→ 传入字符串**不得是栈对象或临时 `std::string`**，必须是静态存储。
+3. 运行期再次注入无效（Windows 已缓存枚举结果）→ 约定"**仅在 `start()` 前调用一次**"。
+
+**推荐调用范式（C 取消后：机型层直接调用驱动，两步与 UART 分支同构）**：
+
+```cpp
+// 机型层（pyro_init_thread.cpp）
+usb_cdc_drv_t::instance().start("INFANTRY2-GIMBAL");   // 序列号由应用层自行书写（§9.2.4）
+
+// 与 UART 分支一一对应：reset(baud,...) ↔ start(serial)；enable_rx_dma() ↔ enable_rx()
+usb_cdc_drv_t::instance().enable_rx();
+```
+
+**UID 读取的归属（已不采用）**：定稿序列号不含 UID；若将来需要，`HAL_GetUIDw0()` 也应放在机型层/应用层工具函数中，**不在 CDC 驱动内**。
+
+**收益 / 代价**
+
+| 收益 | 代价 |
+|---|---|
+| 驱动零身份依赖（无机型宏、不读 UID、不引 HAL）→ 跨机型/跨平台复用最干净 | 多一个初始化契约（必须在 `start()` 前注入） |
+| 身份可运行时决定：读 Flash 配置 / 人工编号 / 上位机下发 / 多产品形态 | 忘记注入会静默落到默认身份 → 多板并发隐患，需显式失败或编译期提示 |
+| 与将来 D（多实例/多路 CDC）天然契合（C 已取消，不再涉及 BSP） | 描述符文件从"纯常量"变为"可写指针数组"（极小改动） |
+
+**"忘记注入"的处理（建议）**：`start()` 在未注入时返回 `PYRO_PARAM_ERROR`，强制显式声明身份（避免静默默认值引发"多板抢 COM 号"这类难查故障）；自测/回环场景可在测试宏下放行默认值。
+
+**与 §9.2 编译期宏方案的关系（定稿：不采用宏注入）**：**不使用** `PYRO_USB_ROBOT_NAME` / `PYRO_USB_BOARD_ROLE`，**不做任何 CMake 注入**，也不提供 `PYRO_USB_SERIAL_STR`；序列号由应用层在 `start(serial)` 处**直接书写**（如 `start("INFANTRY2-GIMBAL")`），唯一性由调用者负责。驱动侧不需要 `fill_serial_utf16()`。C（BSP）已取消，调用点即机型层 `pyro_init_thread.cpp`。
+
+### 9.2.3 验证与风险（承 A-1~A-3；与所选序列号形式无关）
+
+**A-4 验证**：以 `ROBOT_ID=4` / `ROBOT_ID=5`（或切 `BOARD`）各编译一次 → 设备管理器中**产品名恒为** `PYRo Robot Virtual COM`，序列号为 `<ROBOT_NAME>-<BOARD_ROLE>`；不同机型/板别的两块板同插 → 两个独立实例。若 A-3 改走含 UID 的参考实现，则序列号额外带 UID 尾部。
+
+**A-5 风险**：产品名/序列号变化会使 Windows 重新分配 COM 号，上位机需按 VID/PID 或产品名匹配（见 §6.4）；跨 MCU 时 `UID_BASE` 需 `#if defined(UID_BASE)` 兜底。后续若需更长序列号（96bit UID），受 31 字符上限约束，需同时评估描述符缓冲大小。
+
+### 9.2.4 精简定稿形态（推荐）：厂商/产品编译期固定，仅序列号由应用层注入
+
+| 描述符字段 | 取值 | 决定方式 |
+|---|---|---|
+| `iManufacturer` (index 1) | `"PYRo"` | 编译期常量 |
+| `iProduct` (index 2) | `"PYRo Robot Virtual COM"` | 编译期常量（**不含机型** → 对所有机型/板别一致） |
+| `iSerialNumber` (index 3) | `INFANTRY2-GIMBAL`（**车型+板别，不含 UID**） | **仅此一项**由应用层注入（编译期常量亦可） |
+| `VID / PID / BCD` | `0xCAFE / 0x4010 / 0x0100` | 编译期宏 |
+
+**接口收敛为"只设序列号"**：
+
+```cpp
+class usb_cdc_drv_t final : public serial_itf_t
+{
+  public:
+    /// 启动 USB 设备栈。serial 必填：nullptr/空串 → 返回 PYRO_PARAM_ERROR。
+    /// @param serial 可打印 ASCII、非空、≤31 字符；由应用层自行书写（如 "INFANTRY2-GIMBAL"）
+    status_t start(const char *serial);
+};
+```
+
+**为什么这样收敛是合理的**
+
+1. Windows 的设备去重**只看 `VID/PID/Serial`**，`iProduct` 仅影响显示名称 → 把可变部分收敛到 serial，区分能力不损失。
+2. 厂商/产品成为编译期常量 → 描述符文件几乎不必从"纯常量"改为"可写数组"，只有 index 3 一项可变；`desc_device` 保持 `const`（留在 Flash，零 RAM 增量）。
+3. 对外契约只剩一个参数 → "忘记注入/半注入"的隐患面大幅缩小。
+
+**必须配套的三条约束**
+
+| # | 约束 | 理由 |
+|---|---|---|
+| 1 | **serial 必填**（不提供"无序列号"分支） | `desc_device.iSerialNumber` 固定为 `0x03`；允许空串会让主机收到 0 长度字符串描述符（行为不可预期）；且产品名固定后，"无序列号"会退化为按端口位置建实例 → 换口变 COM 号、多板必撞 |
+| 2 | **≤31 字符且为可打印 ASCII**；首选**编译期 `static_assert`**（序列号为宏常量时），运行期再兜底一次（超限返回 `PYRO_PARAM_ERROR`，禁止静默截断） | 本项目缓冲为 `_desc_str[32+1]`；截断会造成"两块板序列号相同"这种最危险的静默失败 |
+| 3 | **静态存储 + 在 `start()` 之前提供** | `tud_descriptor_*_cb` 会被多次调用（重枚举、重复 GET_DESCRIPTOR） |
+
+**可读性如何保留**：产品名固定后，机型/板别信息由**序列号**承载 → 设备实例路径仍可读：`USB\VID_CAFE&PID_4010\INFANTRY2-GIMBAL`。
+
+**已知取舍**：设备管理器的"设备名"对所有机型/板别都显示同一串 `PYRo Robot Virtual COM`，多机型同插时只能靠 COM 号或序列号区分（这是产品名统一的必然结果）。
+
+**演进留口**：若将来确需把机型写进产品名，只需把 `product` 纳入 `usb_device_info_t` 作为**可选覆盖**（nullptr → 用固定默认值），机制与调用点不变。
+
+**定稿决定（本次确认）：序列号 = `车型+板别`，不含 UID**
+
+| 维度 | 结论 |
+|---|---|
+| 形态 | 应用层**直接书写的字符串字面量**，例 `"INFANTRY2-GIMBAL"`（不引入任何 CMake 宏注入） |
+| 来源 | 应用层（机型 `pyro_init_thread.cpp`）；驱动只负责校验与注入，不推导任何机型信息 |
+| 长度 | 建议 ≤ 31 字符；由 `start()` **运行期校验**（超长返回 `PYRO_PARAM_ERROR`，不静默截断） |
+| 不再需要 | UID 读取、`make_serial()` 十六进制格式化、`stm32h7xx_hal.h` 依赖、运行期长度兜底（可保留一次断言） |
+| 附带收益 | 同一机型+板别的板子（含备板）插任意 USB 口都是**同一设备实例 / 同一 COM 号** → 上位机写死 COM 号依然可用 |
+| 唯一限制（须接受） | 同一 PC **并发**插两块"同机型+同板别"的板 → 视为同一设备：COM 号互相覆盖、只能打开其中一个、第二块插入可能让第一块重新枚举（判据见本节前的"没关系 vs 有关系"清单） |
+
+### 9.3 B｜清除自瞄残留与自测脚手架
+
+| 位置 | 动作 |
+|---|---|
+| `pyro_usb_cdc_drv.cpp:8-10` | 删 `USB_CDC_LOOPBACK` 默认值块 |
+| `pyro_usb_cdc_drv.cpp:121-129` | `enable_rx()` 删 `_parser.configure(0xA5, 29)` 自测分支，仅留 `_rx_enabled = true; return PYRO_OK;` |
+| `pyro_usb_cdc_drv.cpp:209-228` | `dispatch()` 删自测档位 2（无接收方回环）整块 |
+| `pyro_usb_cdc_drv.cpp:255-263` | 删 `loopback_write()` 定义 |
+| `pyro_usb_cdc_drv.cpp:265-283` | `on_cdc_rx()` 固定走 `dispatch()` |
+| `pyro_usb_cdc_drv.cpp:285-292` | `on_mount()` 置空 + 注释"预留挂载钩子（当前无业务动作）" |
+| `pyro_usb_cdc_drv.cpp:300-313` | `on_line_state()` 仅保留 `(void)dtr; (void)rts;`（预留 DTR 策略钩子） |
+| `pyro_usb_cdc_drv.h:90-91` | 删 `loopback_write()` 声明 |
+| 顶层 `CMakeLists.txt:95-100` | 删 `USB_CDC_SELF_TEST` 段（含代码零引用的 `USB_CDC_STANDALONE_TEST`） |
+| `pyro_frame_parser.h:22,65` | 注释去机型化（"自瞄帧 29B" → "常见业务帧约 29B"）；`_sof{0xA5}` → `_sof{0x00}`（`enabled()` 由 `_len` 决定，默认 SOF 不影响行为） |
+| `pyro_serial_itf.h:20-24,33` | 注释去具名消费者（`infantry2_autoaim_drv_t` → "抽象消费者"） |
+| **保留** | `is_mounted()` / `is_connected()` / `on_umount()`（`_parser.reset()` + `tud_cdc_read_flush()` 为必需逻辑） |
+
+**B 验证**：`Select-String -Path .\PYRo,.\Robot,.\CMakeLists.txt -Pattern 'USB_CDC_LOOPBACK|USB_CDC_SELF_TEST|USB_CDC_STANDALONE_TEST' -Recurse` → 0 命中（`plan.md` 属历史设计文档，不计）；编译通过；`.map` 内 `cdc_device` / `dcd_dwc2` / `pyro_usb_cdc_drv` 仍在。
+
+### 9.4 C｜抽出 `bsp_usb`，对齐框架 BSP 约定（**已取消，保留为决策记录**）
+
+> **定稿说明（C 取消）**：
+>
+> 1. **目标板固定为达妙 MC02，只有一路 USB**，不存在"多实例统一管理"需求——而 UART 引入 BSP 的首要动因正是要管理 UART1/5/7/10 多路实例（`pyro_bsp_uart.cpp:20-44` 的 `get_uartN()`）。
+> 2. 板级细节（PA11/PA12 + `GPIO_AF10_OTG1_HS` + `OTG_HS_IRQn`）在本工程是**唯一且确定**的事实，留在驱动 `usb_task_t::init()` 内即可；换板时只改一处。
+> 3. 取消后调用侧与现状一致：`usb_cdc_drv_t::instance().start(serial)` + `enable_rx()`，改动面更小、无需新增 `pyro_bsp_usb.*`。
+>
+> **演进留口**：若将来出现第二路 USB 口，或换到 OTG_FS / ULPI 外部 PHY / 其他 MCU，再按本节做法抽出 BSP（或改用 ops 注入）。下方内容即为那时的可用方案。
+
+对齐依据：UART 为 `pyro_bsp_uart`（持单例；`uart_drv_t` 构造私有 + `friend class bsp_uart`）、CAN 为 `pyro_bsp_can`；USB 目前板级细节内嵌驱动、无对应 BSP。
+
+**C-1 新增 `PYRo/Peripheral/USB/pyro_bsp_usb.h`**
+
+```cpp
+class bsp_usb
+{
+public:
+    static status_t hw_init();            // DP/DM 引脚(AF) + 中断优先级；须在 tusb_init() 之前
+    static usb_cdc_drv_t &get_cdc();      // 与 bsp_uart::get_uart1() 同构
+};
+```
+
+**C-2 新增 `PYRo/Peripheral/USB/pyro_bsp_usb.cpp`**：`get_cdc()` 返回局部静态实例；`hw_init()` 为 `usb_task_t::init()` 原文搬迁（GPIOA PA11/PA12 + `GPIO_AF10_OTG1_HS` + `OTG_HS_IRQn` NVIC 优先级），保留原有"USB 时钟源/电压检测由 CubeMX `HAL_PCD_MspInit()` 维护、切勿硬编码 `RCC_USBCLKSOURCE_*`"注释。
+
+**C-3 `pyro_usb_cdc_drv.h`**：删 `instance()`；构造/析构保持私有并新增 `friend class bsp_usb;`；类注释注明"实例由 `bsp_usb::get_cdc()` 持有；本类不含板级 GPIO/IRQ 细节"。
+
+**C-4 `pyro_usb_cdc_drv.cpp`**：include `pyro_bsp_usb.h`；`usb_task_t::init()` 改为 `return bsp_usb::hw_init();`；删除 `instance()` 定义（`:77-81`）；C 桥接 4 处（`:320-349`）改调 `bsp_usb::get_cdc()`；`run_loop()`（`tusb_init` + `tud_task`）不变。
+
+**C-5 调用侧（2 文件 4 处）**：`Robot/Infantry2/pyro_init_thread.cpp:9,82,85`、`Robot/Infantry2/Communication/Gimbal_board/pyro_autoaim_drv.cpp:6,41` —— 改为 `#include "pyro_bsp_usb.h"` + `bsp_usb::get_cdc()`。
+
+**C-6 `PYRo/CMakeLists.txt`**：源列表新增 `Peripheral/USB/pyro_bsp_usb.cpp`（include 路径已含 `Peripheral/USB`，无需再加）。
+
+**C 取舍（推荐 C-1 式）**：drv 直接调 `bsp_usb::hw_init()`，代价是 `pyro_usb_cdc_drv.cpp` 出现 drv → bsp 的编译期依赖（UART 侧无此依赖，但 `uart_drv_t` 签名里本就带 `UART_HandleTypeDef*`，属同类"松散分层"）。若要求严格单向依赖（bsp → drv），可升级为 **ops 注入**：`struct usb_hw_ops_t { status_t (*hw_init)(); };` + `explicit usb_cdc_drv_t(const usb_hw_ops_t&)`，由 bsp 构造时传入。建议先按 C-1 落地（行为零变化、可回滚），真上第二个平台时再升级。
+
+**C 验证（决策记录，本次不实施）**：若将来实施——编译通过且 `pyro_bsp_usb.cpp` 出现在 `compile_commands.json`；枚举与自瞄收发回归正常；`Select-String -Path .\PYRo,.\Robot -Pattern 'OTG_HS_IRQn|GPIO_AF10_OTG1_HS' -Recurse` → 仅命中 `pyro_bsp_usb.cpp`。
+
+### 9.5 本次不做（C/D/E）与理由
+
+| 项 | 内容 | 不做的理由 |
+|---|---|---|
+| C | 抽出 `bsp_usb`（板级 GPIO/NVIC 下沉 + 单例归属 BSP） | 目标板固定达妙 MC02、**单 USB 口**，无多实例管理需求（UART 引入 BSP 的首要动因即"多串口统一管理"）；板级细节唯一且确定，留在驱动内即可；取消后调用侧与现状一致、改动更小（§9.4 保留为决策记录与演进留口） |
+| D | 多实例 / 多路 CDC（`CFG_TUD_CDC>1`、C 回调按 `itf` 分发、多份 CDC 描述符） | 当前 `MAX_RX_CALLBACKS=4` + `owner` 已支持"一路链路多消费者"；多路 CDC 会新增 COM 口、改变描述符字符串索引与上位机匹配规则、增加 FS 带宽与中断负担。真出现"一台设备同时开两路 CDC"的需求再评估 |
+| E | `CFG_TUD_MAX_SPEED` / `BOARD_TUD_RHPORT` / `CFG_TUSB_MCU` 参数化以支持跨 MCU | 仓库当前仅 STM32H723；保留现有 `#error` 策略（宁可编译失败，也不要静默不枚举） |
+
+> 若将来要做 D，最小改动点是：`usb_cdc_drv_t` 去单例 → 内部按 `CFG_TUD_CDC` 组实例数组；C 桥接用 `itf` 参数索引实例（现 `tud_cdc_rx_cb` / `tud_cdc_line_state_cb` 均为 `(void) itf`）；`tusb_config.h` 与 `pyro_usb_descriptors.c` 同步扩到 2 路（端点 `0x83/0x04/0x84`）。
+
+### 9.6 实施顺序、验证与回滚
+
+| 序 | 内容 | 验证 | 回滚 |
+|---|---|---|---|
+| 1 | B（清残留；4 文件） | 三宏 grep 0 命中 + 编译通过 + 自瞄链路回归 | `git revert` |
+| 2 | A（1 新增 + 3 修改：desc-config、descriptors、驱动 `start(serial)`、调用侧序列号字面量） | 编译通过；设备管理器产品名恒为 `PYRo Robot Virtual COM`、序列号 = 应用层所写的字面量（本工程 `INFANTRY2-GIMBAL`） | `git revert`（COM 号会再变一次） |
+| ~~3~~ | ~~C（2 新增 + 5 修改 + CMake）~~ **已取消**（见 §9.4/§9.5） | — | — |
+
+> 顺序理由：先 B 消掉自瞄残留，使 A 的 diff 不与回环代码交织；C 已取消，故本次只剩两步。
+
+### 9.7 验收清单
+
+1. `grep -rn "Infantry2\|INF2\|0xA5, 29\|USB_CDC_LOOPBACK" PYRo/` → 0 命中（框架层无机型/业务字样）。
+2. 板级细节仍**只存在于** `pyro_usb_cdc_drv.cpp` 的 `usb_task_t::init()`（PA11/PA12 + `GPIO_AF10_OTG1_HS` + `OTG_HS_IRQn`）—— C 取消后不新增 `pyro_bsp_usb.*`，本项与 §9.1 的"保持现状"判定一致。
+3. 产品名恒为 `PYRo Robot Virtual COM`；序列号 = 应用层书写值（本工程 `INFANTRY2-GIMBAL`）→ 换机型/板别只需改这一处字面量；序列号不同的两块板同插 → 两个独立实例；**序列号相同并发则按 §9.2.4 的已知限制**（此项预期不通过）。
+4. USB 自瞄链路回归：枚举、收发、50ms 超时在线判定、`get_com_interval()` 统计均正常。
+5. 代码规模：删回环/自测（`USB_CDC_LOOPBACK` 相关约 40 行）+ 无新增 `pyro_bsp_usb.*`；新增仅 `pyro_usb_desc_config.h`（约 20 行）与少量注入代码 → **净减约 30~40 行**。
+6. 不变项确认：`CubeMX/Core/Src/usb_otg.c`（`HAL_PCD_Init` 宏化）、`stm32h7xx_it.c`（`OTG_HS_IRQHandler` 转发）、`tusb_config.h`（FS/RHPORT/CDC 数量）本次均不动。
+
+### 9.8 文档一致性备注
+
+本方案落地后，§3.7（`enable_rx` 自测档位）、§3.9.1（`USB_CDC_SELF_TEST` 段）、§4 末行（清理测试开关）、§8.13.4（固定序列号）将不再与代码一致；届时在本节下方追加"落地结果"小节即可，**不回溯改写 §1–§8**（保留设计历史与决策依据）。
+
+> 待确认项（实施前需拍板）：仅剩 **④ 是否同步在 `plan.md` 记录落地结果**。**①②③ 均已定稿**：C（BSP）取消（§9.4/§9.5）；序列号 = `车型+板别`（不含 UID，§9.2.4）；身份由应用层经 `start(serial)` 注入。
+>
+> **收敛提案（定稿，已实施）**：采用 **§9.2.4 精简定稿形态** —— 厂商/产品编译期固定（`"PYRo"` / `"PYRo Robot Virtual COM"`），**仅序列号**由应用层注入且**必填**（≤31 字符、可打印 ASCII）；序列号由应用层**直接书写**（例 `start("INFANTRY2-GIMBAL")`），**不做 CMake 注入、不含 UID**；长度/字符集由 `start()` 运行期校验。**残留限制**：同一 PC 并发插两块"同序列号"的板仍会冲突（COM 号覆盖/只能开一个），判据见 §9.2.1 与"没关系 vs 有关系"清单。

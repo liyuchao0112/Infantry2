@@ -92,13 +92,6 @@ target_compile_definitions(tinyusb PUBLIC
 
 target_link_libraries(tinyusb PUBLIC stm32cubemx)          # 传递 FreeRTOS/CMSIS/HAL 头文件
 
-# ---- USB CDC 自测开关（默认关闭，生产环境不要打开）----
-# USB_CDC_LOOPBACK: 1=字节回环  2=经驱动层组帧后回环（见 PYRo/Peripheral/USB/pyro_usb_cdc_drv.cpp）
-option(USB_CDC_SELF_TEST "USB CDC 回环自测（仅调试用）" OFF)
-if (USB_CDC_SELF_TEST)
-    add_compile_definitions(USB_CDC_LOOPBACK=2 USB_CDC_STANDALONE_TEST=1)
-endif()
-
 add_subdirectory(PYRo)
 
 if (ROBOT_ID EQUAL HERO_ID)
@@ -109,6 +102,10 @@ elseif (ROBOT_ID EQUAL SUB_HERO_ID)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/sub_hero)
     target_link_libraries(${CMAKE_PROJECT_NAME}
             Sub_Hero)
+elseif (ROBOT_ID EQUAL ENGINEER_ID)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/engineer)
+    target_link_libraries(${CMAKE_PROJECT_NAME}
+            Engineer)
 elseif (ROBOT_ID EQUAL INFANTRY1_ID)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/infantry1)
     target_link_libraries(${CMAKE_PROJECT_NAME}

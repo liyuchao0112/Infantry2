@@ -40,8 +40,8 @@ void gimbal_deps_init() {
     //没写跟踪微分器，先空着
     
     //pid
-    gimbal_deps_ptr->pid.yaw_pos_pid = new pid_t(10.0f, 0.01f, 0.0f, 1.0f, 10.0f, 50.0f, 1, 20.0f, 1, 4);
-    gimbal_deps_ptr->pid.yaw_spd_pid = new pid_t(8.0f, 0.08f, 0.0003f, 0.0f, 10.0f, 50.0f, 1, 20.0f, 1, 4);
+    gimbal_deps_ptr->pid.yaw_pos_pid = new pid_t(8.0f, 0.01f, 0.0f, 1.0f, 10.0f, 50.0f, 1, 20.0f, 1, 4);
+    gimbal_deps_ptr->pid.yaw_spd_pid = new pid_t(5.0f, 0.08f, 0.0003f, 0.0f, 10.0f, 50.0f, 1, 20.0f, 1, 4);
     gimbal_deps_ptr->pid.pitch_pos_pid = new pid_t(20.2f, 0.0004f, 0.006f, 0.4f, 9.0f, 50.0f, 1, 30.0f, 1, 4);
     gimbal_deps_ptr->pid.pitch_spd_pid = new pid_t(1.18f, 0.068f, 0.006f, 1.8f, 7.0f, 30.0f, 1, 15.0f, 1, 4);
 }
