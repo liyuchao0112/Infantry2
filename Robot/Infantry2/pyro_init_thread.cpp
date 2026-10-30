@@ -81,7 +81,7 @@ extern "C" {
         // 且需先于任何 tud_* 回调使用 instance()。
         // 序列号由应用层自行书写（唯一性由调用者负责）：产品名对所有机型固定，
         // 区分能力由序列号承载（详见 plan.md §9.2.4）。建议 "<机型>-<板别>"，≤31 字符。
-        usb_cdc_drv_t::instance().start("PYRO-INF2-GIM");
+        usb_cdc_drv_t::instance().init("PYRO-INF2-GIM");
         // USB 无链路参数（无波特率/字长/停止位/校验位），故没有 reset 这一步；
         // enable_rx() 等价于 UART 分支的 enable_rx_dma()。
         usb_cdc_drv_t::instance().enable_rx();

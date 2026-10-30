@@ -2,7 +2,6 @@
 #define __PYRO_AUTOAIM_DRV_H__
 
 #include "pyro_core_def.h"
-#include "pyro_serial_itf.h"
 #include "pyro_task.h"
 #include "message_buffer.h"
 #include <cstdint>
@@ -37,7 +36,14 @@ class infantry2_autoaim_drv_t {
         uint8_t     aim_state;
     } __attribute__((packed));
 
-#if defined(AUTOAIM_UART) || defined(AUTOAIM_USB_CDC)
+    /**
+     * @brief 帧 ID（写入帧头的消费者标识，与 usb_cdc_drv_t 的路由表对应）。
+     * @note 上位机必须使用同样的编号，否则帧会被计入 rx_unknown_id 并丢弃。
+     */
+    static constexpr uint8_t RX_FRAME_ID = 0x01;   /**< 视觉 → 云台 */
+    static constexpr uint8_t TX_FRAME_ID = 0x02;   /**< 云台 → 视觉 */
+
+#if defined(AUTOAIM_USB_CDC)
     static infantry2_autoaim_drv_t &get_instance();
 #endif
 
@@ -49,7 +55,7 @@ class infantry2_autoaim_drv_t {
     [[nodiscard]] float get_com_interval() const;
 
   private:
-    explicit infantry2_autoaim_drv_t(serial_itf_t *serial_handle);
+    explicit infantry2_autoaim_drv_t();
     ~infantry2_autoaim_drv_t();
 
     class autoaim_task_t final : public task_base_t {
@@ -65,34 +71,7 @@ class infantry2_autoaim_drv_t {
         infantry2_autoaim_drv_t *_owner;
     };
 
-    struct frame_header_t {
-        uint8_t sof;
-    } __attribute__((packed));
-
-    struct frame_tailer_t {
-        uint16_t crc16;
-        uint8_t end;
-    } __attribute__((packed));
-
-    struct rx_frame_tailer_t {
-        uint16_t crc16;
-    } __attribute__((packed));
-
-    struct tx_packet_t {
-        frame_header_t header;
-        tx_data_t data;
-        frame_tailer_t tailer;
-    } __attribute__((packed));
-
-    struct rx_packet_t {
-        frame_header_t header;
-        rx_data_t data;
-        rx_frame_tailer_t tailer;
-    } __attribute__((packed));
-
-    serial_itf_t *_serial_itf;   // 字节流链路（UART 或 USB-CDC），由驱动层屏蔽差异
     autoaim_task_t *_task;   // The internal task instance
-    tx_packet_t *_tx_buffer; // DMA buffer
     MessageBufferHandle_t _rx_msg_buf;
 
     tx_data_t _tx_payload{}; // 缓存用户修改的待发数据
@@ -103,15 +82,12 @@ class infantry2_autoaim_drv_t {
     float _com_interval_ms{0.0f};
     float _last_rx_time_ms{0.0f};
 
-    static constexpr uint8_t FRAME_SOF = 0xA5;
-
     void init_impl();
     void run_loop_impl();
 
-    bool rx_callback(const uint8_t *p_data, uint16_t size, BaseType_t& xHigherPriorityTaskWoken) const;
+    static bool rx_callback(const uint8_t *data, uint16_t len);
 
-    static status_t error_check(const rx_packet_t *buf);
-    void unpack(const rx_packet_t *buf);
+    void unpack(const rx_data_t *buf);
 };
 
 } // namespace pyro
