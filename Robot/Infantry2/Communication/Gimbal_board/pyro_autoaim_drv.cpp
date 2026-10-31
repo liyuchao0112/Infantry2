@@ -107,7 +107,7 @@ void infantry2_autoaim_drv_t::run_loop_impl() {
 }
 
 /* ISR Callback --------------------------------------------------------------*/
-bool infantry2_autoaim_drv_t::rx_callback(const uint8_t *data, const uint16_t size) {
+bool infantry2_autoaim_drv_t::rx_callback(uint8_t frame_id, const uint8_t *data, const uint16_t size) {
     // 长度不符说明上位机协议版本不匹配，直接丢（USB 驱动的 CRC 已保证字节可信）
     if (size != sizeof(rx_data_t))
         return false;

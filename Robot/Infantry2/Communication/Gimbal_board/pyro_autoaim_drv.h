@@ -85,7 +85,7 @@ class infantry2_autoaim_drv_t {
     void init_impl();
     void run_loop_impl();
 
-    static bool rx_callback(const uint8_t *data, uint16_t len);
+    static bool rx_callback(uint8_t frame_id, const uint8_t *data, uint16_t len);
 
     void unpack(const rx_data_t *buf);
 };
