@@ -29,7 +29,7 @@ extern infantry2_autoaim_drv_t::rx_data_t autoaim_cmd;
 
 void gimbal_deps_init() {
     gimbal_deps_ptr->motor.pitch = new dm_motor_drv_t(0x01, 0x00, bsp_can::can2);
-    gimbal_deps_ptr->motor.yaw = new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_5, bsp_can::can1);
+    gimbal_deps_ptr->motor.yaw = new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_5, bsp_can::can1, dji_gm_6020_motor_drv_t::control_mode_t::CURRENT_MODE);
 
     static_cast<dm_motor_drv_t *>(gimbal_deps_ptr->motor.pitch)->set_position_range(-PI, PI);
     static_cast<dm_motor_drv_t *>(gimbal_deps_ptr->motor.pitch)

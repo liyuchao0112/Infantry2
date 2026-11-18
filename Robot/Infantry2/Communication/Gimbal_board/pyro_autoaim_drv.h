@@ -36,6 +36,8 @@ class infantry2_autoaim_drv_t {
         uint8_t     aim_state;
     } __attribute__((packed));
 
+    static constexpr uint8_t SERIAL_ID = 0;
+
     /**
      * @brief 帧 ID（写入帧头的消费者标识，与 usb_cdc_drv_t 的路由表对应）。
      * @note 上位机必须使用同样的编号，否则帧会被计入 rx_unknown_id 并丢弃。

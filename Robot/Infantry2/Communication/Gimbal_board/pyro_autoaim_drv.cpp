@@ -40,7 +40,7 @@ infantry2_autoaim_drv_t::infantry2_autoaim_drv_t() {
 }
 
 infantry2_autoaim_drv_t::~infantry2_autoaim_drv_t() {
-    usb_cdc_drv_t::instance().remove_rx(RX_FRAME_ID);
+    usb_cdc_drv_t::instance().remove_rx(SERIAL_ID, RX_FRAME_ID);
 
     if (_task != nullptr) {
         _task->stop();
@@ -74,7 +74,7 @@ void infantry2_autoaim_drv_t::init_impl() {
                   "autoaim tx payload exceeds usb_cdc_drv_t::MAX_DATA_LEN");
 
     // 3. 把本模块挂到 USB 驱动的路由表上：收到 FRAME_ID == 0x01 的帧就回调
-    (void) usb_cdc_drv_t::instance().register_rx(RX_FRAME_ID, infantry2_autoaim_drv_t::rx_callback);
+    (void) usb_cdc_drv_t::instance().register_rx(SERIAL_ID, RX_FRAME_ID, infantry2_autoaim_drv_t::rx_callback);
 }
 
 void infantry2_autoaim_drv_t::run_loop_impl() {
@@ -126,7 +126,7 @@ infantry2_autoaim_drv_t::tx_data_t &infantry2_autoaim_drv_t::get_tx_data() {
 }
 
 status_t infantry2_autoaim_drv_t::send_data() const {
-    return usb_cdc_drv_t::instance().send(TX_FRAME_ID, (uint8_t*)&_tx_payload, sizeof(tx_data_t));
+    return usb_cdc_drv_t::instance().send(SERIAL_ID, TX_FRAME_ID, (uint8_t*)&_tx_payload, sizeof(tx_data_t));
 }
 
 const infantry2_autoaim_drv_t::rx_data_t &infantry2_autoaim_drv_t::get_rx_data() const {
