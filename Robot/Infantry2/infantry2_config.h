@@ -99,10 +99,10 @@ namespace infantry2_chassis {
     constexpr float MAX_VX{40.0f};              // m/s    前后限速
     constexpr float MAX_VY{40.0f};              // m/s    左右限速
     constexpr float MAX_WZ{16.0f};              // rad/s  旋转限速
-    constexpr float MAX_ACCEL{20.0f};           // 加速度限幅 (平移 m/s², 旋转 rad/s²)
+    constexpr float MAX_ACCEL{200.0f};           // 加速度限幅 (平移 m/s², 旋转 rad/s²)
     constexpr uint32_t LOST_TIMEOUT_MS{50};    // 掉线停车阈值 (ms)
 
-} //namespace infantry2_chassis
+} // namespace infantry2_chassis
 
 #endif
 

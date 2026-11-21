@@ -24,13 +24,13 @@ void chassis_deps_init() {
     // ===== 电机 (按实际硬件核对型号 / CAN总线 / ID) =====
     // 舵电机
     chassis_deps_ptr->motor.rudder[0] =
-        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_3, bsp_can::can2); // FL
+        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_3, bsp_can::can2, dji_gm_6020_motor_drv_t::CURRENT_MODE); // FL
     chassis_deps_ptr->motor.rudder[1] =
-        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_1, bsp_can::can2); // FR
+        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_1, bsp_can::can2, dji_gm_6020_motor_drv_t::CURRENT_MODE); // FR
     chassis_deps_ptr->motor.rudder[2] =
-        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_4, bsp_can::can1); // BR
+        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_4, bsp_can::can1, dji_gm_6020_motor_drv_t::CURRENT_MODE); // BR
     chassis_deps_ptr->motor.rudder[3] =
-        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_2, bsp_can::can1); // BL
+        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::id_2, bsp_can::can1, dji_gm_6020_motor_drv_t::CURRENT_MODE); // BL
 
     // 轮电机
     chassis_deps_ptr->motor.wheel[0] =
@@ -44,7 +44,7 @@ void chassis_deps_init() {
 
     // 注意: yaw 电机需占用独立帧槽位, 与上方 wheel/rudder 错开, 按实际接线填写
     chassis_deps_ptr->motor.yaw =
-        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::register_id_t::id_5, bsp_can::can3);
+        new dji_gm_6020_motor_drv_t(dji_motor_tx_frame_t::register_id_t::id_5, bsp_can::can3, dji_gm_6020_motor_drv_t::CURRENT_MODE);
 
     // ===== PID (按实际整定) =====
     for (int i = 0; i < 4; i++) {
