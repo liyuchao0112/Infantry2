@@ -7,6 +7,7 @@
 #include "pyro_referee.h"
 #include "pyro_supercap_drv.h"
 #include "pyro_usb_cdc_drv.h"
+#include "pyro_usb_cdc_test.h"
 
 namespace pyro {
 
@@ -78,6 +79,13 @@ extern "C" {
 #elif defined(AUTOAIM_USB_CDC)
         usb_cdc_drv_t::instance().init("PYRO-INF2-GIM");
         usb_cdc_drv_t::instance().enable_rx(0);
+#endif
+
+#if defined(USB_CDC_TEST)
+        usb_cdc_drv_t::instance().init("PYRO-TEST-CDC");
+        usb_cdc_drv_t::instance().enable_rx(0);
+        usb_cdc_drv_t::instance().enable_rx(1);
+        usb_cdc_test_enable();                    // ← 加这三行
 #endif
 
         vTaskDelete(nullptr);

@@ -7,7 +7,7 @@ set(BOARD "GIMBAL_BOARD")
 add_library(Infantry2 OBJECT)
 
 set_target_properties(Infantry2 PROPERTIES
-    VERSION 1.1.2    # 通过版本号来辅助判断代码情况
+    VERSION 1.1.5    # 通过版本号来辅助判断代码情况
 )
 
 target_compile_definitions(Infantry2 PRIVATE
@@ -62,7 +62,8 @@ if(BOARD STREQUAL "GIMBAL_BOARD")
         DR16_UART=PYRO_UART5
         VT03_UART=PYRO_UART1
         # AUTOAIM_UART=PYRO_UART7   # 旧路径：UART7（保留以便一键回退）
-        AUTOAIM_USB_CDC=1           # 新路径：TinyUSB CDC 虚拟串口
+#        AUTOAIM_USB_CDC=1           # 新路径：TinyUSB CDC 虚拟串口
+        USB_CDC_TEST=1
     )
 
 elseif (BOARD STREQUAL "CHASSIS_BOARD")

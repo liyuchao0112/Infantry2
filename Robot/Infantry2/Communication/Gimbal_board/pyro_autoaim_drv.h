@@ -45,9 +45,7 @@ class infantry2_autoaim_drv_t {
     static constexpr uint8_t RX_FRAME_ID = 0x01;   /**< 视觉 → 云台 */
     static constexpr uint8_t TX_FRAME_ID = 0x02;   /**< 云台 → 视觉 */
 
-#if defined(AUTOAIM_USB_CDC)
     static infantry2_autoaim_drv_t &get_instance();
-#endif
 
     void start_rx() const;
     tx_data_t &get_tx_data();

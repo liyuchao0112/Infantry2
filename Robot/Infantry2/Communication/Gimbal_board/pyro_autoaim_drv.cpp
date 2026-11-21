@@ -1,8 +1,6 @@
 #include "pyro_autoaim_drv.h"
 
-#if defined(AUTOAIM_USB_CDC)
 #include "pyro_usb_cdc_drv.h"
-#endif
 
 #include "pyro_dwt_drv.h"
 
@@ -28,12 +26,10 @@ void infantry2_autoaim_drv_t::autoaim_task_t::run_loop() {
         _owner->run_loop_impl();
 }
 
-#if defined(AUTOAIM_USB_CDC)
 infantry2_autoaim_drv_t &infantry2_autoaim_drv_t::get_instance() {
     static infantry2_autoaim_drv_t instance;
     return instance;
 }
-#endif
 
 infantry2_autoaim_drv_t::infantry2_autoaim_drv_t() {
     _task = new autoaim_task_t(this);
